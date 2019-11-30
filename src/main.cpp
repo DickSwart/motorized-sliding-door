@@ -179,7 +179,7 @@ void loop()
 ///////////////////////////////////////////////////////////////////////////
 void processStepper()
 {
-  if (!moving && doorLock.getState()){
+  if (!moving && doorLock.getRawState()){
     #ifdef DEBUG
       Serial.print("[main.cpp]: processStepper - EXIT, door is locked.");
     #endif
