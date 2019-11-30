@@ -1,0 +1,78 @@
+{
+  "subscribeTopics": [
+    {
+      "name": "E449D3/status",
+      "color": "#00ff00"
+    },
+    {
+      "name": "E449D3/sensor/doorlock",
+      "color": "#395a9b"
+    },
+    {
+      "name": "E449D3/sensor/position",
+      "color": "#c044e5"
+    },
+    {
+      "name": "E449D3/sensor/wifi",
+      "color": "#d3cd0c"
+    }
+  ],
+  "publishTopics": [
+    {
+      "name": "cmnd/E449D3/action"
+    },
+    {
+      "name": "cmnd/E449D3/position"
+    },
+    {
+      "name": "cmnd/E449D3/doorlock"
+    }
+  ],
+  "clipboardMessages": [
+    {
+      "name": "Door Lock: ON",
+      "topic": {
+        "name": "cmnd/E449D3/doorlock"
+      },
+      "payload": "ON",
+      "retained": true,
+      "qos": 0
+    },
+    {
+      "name": "Door Lock: OFF",
+      "topic": {
+        "name": "cmnd/E449D3/doorlock"
+      },
+      "payload": "OFF",
+      "retained": true,
+      "qos": 0
+    },
+    {
+      "name": "Door: OPEN",
+      "topic": {
+        "name": "cmnd/E449D3/action"
+      },
+      "payload": "OPEN",
+      "retained": true,
+      "qos": 0
+    },
+    {
+      "name": "Door: STOP",
+      "topic": {
+        "name": "cmnd/E449D3/action"
+      },
+      "payload": "STOP",
+      "retained": true,
+      "qos": 0
+    },
+    {
+      "name": "Door: CLOSE",
+      "topic": {
+        "name": "cmnd/E449D3/action"
+      },
+      "payload": "CLOSE",
+      "retained": true,
+      "qos": 0
+    }
+  ]
+}
