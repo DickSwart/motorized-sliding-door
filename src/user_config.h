@@ -25,12 +25,18 @@
 
 #define MQTT_PAYLOAD_ON "ON"
 #define MQTT_PAYLOAD_OFF "OFF"
+#define MQTT_DOOR_LOCK_STATE_LOCKED "LOCKED"
+#define MQTT_DOOR_LOCK_STATE_UNLOCKED "UNLOCKED"
+#define MQTT_DOOR_LOCK_PAYLOAD_LOCK "LOCK"
+#define MQTT_DOOR_LOCK_PAYLOAD_UNLOCK "UNLOCK"
 
 ///////////////////////////////////////////////////////////////////////////
 //   DOOR LOCK
 ///////////////////////////////////////////////////////////////////////////
 #define DOOR_LOCK_STATE_TOPIC     "doorlock"
 #define DOOR_LOCK_PIN             D5
+#define DOOR_LOCK_STEPS_TO_OPEN 0
+#define DOOR_LOCK_STEPS_TO_CLOSE 150
 
 ///////////////////////////////////////////////////////////////////////////
 //   DOOR SENSOR
