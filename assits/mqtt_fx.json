@@ -30,20 +30,20 @@
   ],
   "clipboardMessages": [
     {
-      "name": "Door Lock: ON",
+      "name": "Door Lock: LOCK",
       "topic": {
         "name": "cmnd/E449D3/doorlock"
       },
-      "payload": "ON",
+      "payload": "LOCK",
       "retained": true,
       "qos": 0
     },
     {
-      "name": "Door Lock: OFF",
+      "name": "Door Lock: UNLOCK",
       "topic": {
         "name": "cmnd/E449D3/doorlock"
       },
-      "payload": "OFF",
+      "payload": "UNLOCK",
       "retained": true,
       "qos": 0
     },

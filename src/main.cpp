@@ -6,7 +6,7 @@
 #include <ArduinoOTA.h>    //https://github.com/esp8266/Arduino/tree/master/libraries/ArduinoOTA
 #include <AH_EasyDriver.h> //http://www.alhin.de/arduino/downloads/AH_EasyDriver_20120512.zip
 #include "SwartNinjaRSW.h"
-#include "SwartNinjaSW.h"
+#include <Servo.h>
 
 #include "user_config.h" // Fixed user configurable options
 #ifdef USE_CONFIG_OVERRIDE
@@ -99,10 +99,12 @@ void handleSwartNinjaSensorUpdate(char *value, int pin, const char *event);
 SwartNinjaRSW doorSensor(DOOR_PIN, handleSwartNinjaSensorUpdate);
 
 ///////////////////////////////////////////////////////////////////////////
-//   SwartNinjaRelay
+//   Doorlock
 ///////////////////////////////////////////////////////////////////////////
-// initialize the reed switch objects
-SwartNinjaSW doorLock(DOOR_LOCK_PIN);
+void publishDoorLockState();
+// initialize the servo objects
+Servo doorLock;
+bool isLocked = false;
 
 ///////////////////////////////////////////////////////////////////////////
 //   SimpleTimer
@@ -121,12 +123,7 @@ void setup()
 
   doorStepper.setMicrostepping(STEPPER_MICROSTEPPING); // 0 -> Full Step
   doorStepper.setSpeedRPM(STEPPER_SPEED);              // set speed in RPM, rotations per minute
-#if DRIVER_INVERTED_SLEEP == 1
   doorStepper.sleepOFF();
-#endif
-#if DRIVER_INVERTED_SLEEP == 0
-  doorStepper.sleepON();
-#endif
 
   // WIFI
   setupWiFi();
@@ -141,7 +138,8 @@ void setup()
 
   delay(10);
   doorSensor.setup();
-  doorLock.setup();
+  doorLock.attach(DOOR_LOCK_PIN);
+  isLocked = (doorLock.read() != DOOR_LOCK_STEPS_TO_OPEN);
 
   timer.setInterval(((1 << STEPPER_MICROSTEPPING) * 5800) / STEPPER_SPEED, processStepper);
   timer.setInterval(120000, checkInMQTT);
@@ -179,21 +177,17 @@ void loop()
 ///////////////////////////////////////////////////////////////////////////
 void processStepper()
 {
-  if (!moving && doorLock.getRawState()){
-    #ifdef DEBUG
-      Serial.print("[main.cpp]: processStepper - EXIT, door is locked.");
-    #endif
+  if (isLocked)
+  {
+#ifdef DEBUG
+    Serial.println("[DEBUG]: processStepper - EXIT, door is locked.");
+#endif
     return;
   }
 
   if (newPosition > currentPosition)
   {
-    #if DRIVER_INVERTED_SLEEP == 1
-        doorStepper.sleepON();
-    #endif
-    #if DRIVER_INVERTED_SLEEP == 0
-        doorStepper.sleepOFF();
-    #endif
+    doorStepper.sleepON();
     doorStepper.revolve(1);
     currentPosition++;
     moving = true;
@@ -201,24 +195,14 @@ void processStepper()
 
   if (newPosition < currentPosition)
   {
-    #if DRIVER_INVERTED_SLEEP == 1
-        doorStepper.sleepON();
-    #endif
-    #if DRIVER_INVERTED_SLEEP == 0
-        doorStepper.sleepOFF();
-    #endif
+    doorStepper.sleepON();
     doorStepper.revolve(-1);
     currentPosition--;
     moving = true;
   }
   if (newPosition == currentPosition && moving == true)
   {
-    #if DRIVER_INVERTED_SLEEP == 1
-        doorStepper.sleepOFF();
-    #endif
-    #if DRIVER_INVERTED_SLEEP == 0
-        doorStepper.sleepON();
-    #endif
+    doorStepper.sleepOFF();
     String temp_str = String(currentPosition);
     temp_str.toCharArray(positionPublish, temp_str.length() + 1);
     publishToMQTT(MQTT_STEPPER_TOPIC, positionPublish);
@@ -441,14 +425,18 @@ void handleMQTTMessage(char *topic, byte *payload, unsigned int length)
   }
   if (newTopic == MQTT_DOOR_LOCK_COMMAND_TOPIC)
   {
-    Serial.print(F("[MQTT]: MQTT_DOOR_LOCK_COMMAND_TOPIC: "));
-    Serial.println(newTopic);
-    Serial.print(F("[MQTT]: equalsIgnoreCase: "));
-    Serial.println(newPayload.equalsIgnoreCase(MQTT_PAYLOAD_ON) );
-
-    if (doorLock.setState(newPayload.equalsIgnoreCase(MQTT_PAYLOAD_ON) )){
-      publishToMQTT(MQTT_DOOR_LOCK_TOPIC, doorLock.getState());
+    if (newPayload.equalsIgnoreCase(MQTT_DOOR_LOCK_PAYLOAD_LOCK))
+    {
+      doorLock.write(DOOR_LOCK_STEPS_TO_CLOSE);
+      Serial.println("LOCK THE DOOR");
     }
+    else if (newPayload.equalsIgnoreCase(MQTT_DOOR_LOCK_PAYLOAD_UNLOCK))
+    {
+      doorLock.write(DOOR_LOCK_STEPS_TO_OPEN);
+      Serial.println("UNLOCK THE DOOR");
+    }
+    isLocked = (doorLock.read() != DOOR_LOCK_STEPS_TO_OPEN);
+    publishDoorLockState();
   }
 }
 
@@ -477,9 +465,8 @@ void connectToMQTT()
         {
           Serial.println(F("[MQTT]: Rebooted"));
         }
-        
-        publishToMQTT(MQTT_DOOR_LOCK_TOPIC, doorLock.getState());
 
+        publishDoorLockState();
         handleSwartNinjaSensorUpdate(doorSensor.getCurrentState(), doorSensor.getPinNumber(), SN_RSW_SENSOR_EVT);
 
         // ... and resubscribe
@@ -518,6 +505,11 @@ void checkInMQTT()
   timer.setTimeout(120000, checkInMQTT);
 }
 
+void publishDoorLockState()
+{
+  char *statePayload = strdup((isLocked) ? MQTT_DOOR_LOCK_STATE_LOCKED : MQTT_DOOR_LOCK_STATE_UNLOCKED);
+  publishToMQTT(MQTT_DOOR_LOCK_TOPIC, statePayload);
+}
 /*
   Function called to subscribe to a MQTT topic
 */
