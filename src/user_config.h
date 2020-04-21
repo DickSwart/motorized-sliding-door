@@ -34,7 +34,7 @@
 //   DOOR LOCK
 ///////////////////////////////////////////////////////////////////////////
 #define DOOR_LOCK_STATE_TOPIC     "doorlock"
-#define DOOR_LOCK_PIN             D5
+#define DOOR_LOCK_PIN             D0
 #define DOOR_LOCK_STEPS_TO_OPEN 0
 #define DOOR_LOCK_STEPS_TO_CLOSE 150
 

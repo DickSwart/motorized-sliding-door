@@ -139,6 +139,7 @@ void setup()
   delay(10);
   doorSensor.setup();
   doorLock.attach(DOOR_LOCK_PIN);
+  doorLock.write(DOOR_LOCK_STEPS_TO_OPEN);
   isLocked = (doorLock.read() != DOOR_LOCK_STEPS_TO_OPEN);
 
   timer.setInterval(((1 << STEPPER_MICROSTEPPING) * 5800) / STEPPER_SPEED, processStepper);
@@ -412,14 +413,12 @@ void handleMQTTMessage(char *topic, byte *payload, unsigned int length)
   if (newTopic == MQTT_STEPPER_POSITION_COMMAND_TOPIC)
   {
     int intPayload = newPayload.toInt();
-    if (boot == true)
+    if (boot)
     {
       newPosition = intPayload;
       currentPosition = intPayload;
       boot = false;
-    }
-    if (boot == false)
-    {
+    }else {
       newPosition = intPayload;
     }
   }
@@ -457,16 +456,14 @@ void connectToMQTT()
 
         Serial.println(F("[MQTT]: The mqttClient is successfully connected to the MQTT broker"));
         publishToMQTT(MQTT_AVAILABILITY_TOPIC, "online");
-        if (boot == false)
-        {
-          Serial.println(F("[MQTT]: Reconnected"));
-        }
-        if (boot == true)
+        if (boot)
         {
           Serial.println(F("[MQTT]: Rebooted"));
+          publishDoorLockState();
+        } else {
+          Serial.println(F("[MQTT]: Reconnected"));
         }
 
-        publishDoorLockState();
         handleSwartNinjaSensorUpdate(doorSensor.getCurrentState(), doorSensor.getPinNumber(), SN_RSW_SENSOR_EVT);
 
         // ... and resubscribe
