@@ -1,77 +1,158 @@
 {
   "subscribeTopics": [
     {
-      "name": "E449D3/status",
-      "color": "#00ff00"
+      "name": "homeassistant/E449D3/state",
+      "color": "#AA7F39"
     },
     {
-      "name": "E449D3/sensor/doorlock",
-      "color": "#395a9b"
+      "name": "homeassistant/sensor/E449D3/wifi/state",
+      "color": "#7A296B"
     },
     {
-      "name": "E449D3/sensor/position",
-      "color": "#c044e5"
+      "name": "homeassistant/switch/E449D3/siren/state",
+      "color": "#2C4770"
     },
     {
-      "name": "E449D3/sensor/wifi",
-      "color": "#d3cd0c"
+      "name": "homeassistant/binary_sensor/E449D3/door/state",
+      "color": "#B5C970"
+    },
+    {
+      "name": "homeassistant/lock/E449D3/lock/state",
+      "color": "#8AA236"
+    },
+    {
+      "name": "homeassistant/cover/E449D3/door/state",
+      "color": "#637B0E"
+    },
+    {
+      "name": "homeassistant/cover/E449D3/door/position/state",
+      "color": "#425500"
     }
   ],
   "publishTopics": [
     {
-      "name": "cmnd/E449D3/action"
+      "name": "homeassistant/E449D3/set"
     },
     {
-      "name": "cmnd/E449D3/position"
+      "name": "homeassistant/switch/E449D3/siren/set"
     },
     {
-      "name": "cmnd/E449D3/doorlock"
+      "name": "homeassistant/lock/E449D3/lock/set"
+    },
+    {
+      "name": "homeassistant/cover/E449D3/door/set"
+    },
+    {
+      "name": "homeassistant/cover/E449D3/door/position/set"
     }
   ],
   "clipboardMessages": [
     {
-      "name": "Door Lock: LOCK",
+      "name": "device: reset",
       "topic": {
-        "name": "cmnd/E449D3/doorlock"
+        "name": "homeassistant/E449D3/set"
+      },
+      "payload": "reset",
+      "retained": false,
+      "qos": 0
+    },
+    {
+      "name": "device: restart",
+      "topic": {
+        "name": "homeassistant/E449D3/set"
+      },
+      "payload": "restart",
+      "retained": false,
+      "qos": 0
+    },
+    {
+      "name": "device: state",
+      "topic": {
+        "name": "homeassistant/E449D3/set"
+      },
+      "payload": "state",
+      "retained": false,
+      "qos": 0
+    },
+    {
+      "name": "device: register",
+      "topic": {
+        "name": "homeassistant/E449D3/set"
+      },
+      "payload": "register",
+      "retained": false,
+      "qos": 0
+    },
+    {
+      "name": "device: unregister",
+      "topic": {
+        "name": "homeassistant/E449D3/set"
+      },
+      "payload": "unregister",
+      "retained": false,
+      "qos": 0
+    },
+    {
+      "name": "siren: ON",
+      "topic": {
+        "name": "homeassistant/switch/E449D3/siren/set"
+      },
+      "payload": "ON",
+      "retained": false,
+      "qos": 0
+    },
+    {
+      "name": "siren: OFF",
+      "topic": {
+        "name": "homeassistant/switch/E449D3/siren/set"
+      },
+      "payload": "OFF",
+      "retained": false,
+      "qos": 0
+    },
+    {
+      "name": "lock: LOCK",
+      "topic": {
+        "name": "homeassistant/lock/E449D3/lock/set"
       },
       "payload": "LOCK",
-      "retained": true,
+      "retained": false,
       "qos": 0
     },
     {
-      "name": "Door Lock: UNLOCK",
+      "name": "lock: UNLOCK",
       "topic": {
-        "name": "cmnd/E449D3/doorlock"
+        "name": "homeassistant/lock/E449D3/lock/set"
       },
       "payload": "UNLOCK",
-      "retained": true,
+      "retained": false,
       "qos": 0
     },
     {
-      "name": "Door: OPEN",
+      "name": "cover: OPEN",
       "topic": {
-        "name": "cmnd/E449D3/action"
+        "name": "homeassistant/cover/E449D3/door/set"
       },
       "payload": "OPEN",
-      "retained": true,
+      "retained": false,
       "qos": 0
     },
     {
-      "name": "Door: STOP",
+      "name": "cover: STOP",
       "topic": {
-        "name": "cmnd/E449D3/action"
+        "name": "homeassistant/cover/E449D3/door/set"
       },
       "payload": "STOP",
-      "retained": true,
+      "retained": false,
       "qos": 0
     },
     {
-      "name": "Door: CLOSE",
+      "name": "cover: CLOSE",
       "topic": {
-        "name": "cmnd/E449D3/action"
+        "name": "homeassistant/cover/E449D3/door/set"
       },
       "payload": "CLOSE",
-      "retained": true,
+      "retained": false,
       "qos": 0
     }
   ]

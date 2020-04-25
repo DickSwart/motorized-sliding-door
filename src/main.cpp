@@ -1,24 +1,24 @@
 #include <Arduino.h>
-#include <SimpleTimer.h>   //https://github.com/marcelloromani/Arduino-SimpleTimer/tree/master/SimpleTimer
-#include <ESP8266WiFi.h>   //if you get an error here you need to install the ESP8266 board manager
-#include <ESP8266mDNS.h>   //if you get an error here you need to install the ESP8266 board manager
-#include <PubSubClient.h>  //https://github.com/knolleary/pubsubclient
-#include <ArduinoOTA.h>    //https://github.com/esp8266/Arduino/tree/master/libraries/ArduinoOTA
-#include <AH_EasyDriver.h> //http://www.alhin.de/arduino/downloads/AH_EasyDriver_20120512.zip
-#include "SwartNinjaRSW.h"
 #include <Servo.h>
+#include <ESP8266WiFi.h>  // if you get an error here you need to install the ESP8266 board manager
+#include <ESP8266mDNS.h>  // if you get an error here you need to install the ESP8266 board manager
+#include <PubSubClient.h> // https://github.com/knolleary/pubsubclient
+#include <ArduinoOTA.h>   // https://github.com/esp8266/Arduino/tree/master/libraries/ArduinoOTA
+#include <ArduinoJson.h>  // https://github.com/bblanchon/ArduinoJson
+
+#include "SwartNinjaRSW.h"
+#include "SwartNinjaSW.h"
+#include "SwartNinjaSMD.h"
 
 #include "user_config.h" // Fixed user configurable options
 #ifdef USE_CONFIG_OVERRIDE
 #include "user_config_override.h" // Configuration overrides for my_user_config.h
 #endif
 
-#define USER_MQTT_CLIENT_NAME "CurtainsMCU" // Used to define MQTT topics, MQTT Client ID, and ArduinoOTA
-
 ///////////////////////////////////////////////////////////////////////////
 //   General Declarations
 ///////////////////////////////////////////////////////////////////////////
-
+void systemCheckAndSet();
 char ESP_CHIP_ID[7] = {0};
 char OTA_HOSTNAME[sizeof(ESP_CHIP_ID) + sizeof(OTA_HOSTNAME_TEMPLATE) - 2] = {0};
 
@@ -53,23 +53,50 @@ WiFiClient wifiClient;
  * ------------------------------------------------- */
 // function declaration
 void setupMQTT();
+void publishAllState();
 void connectToMQTT();
 void checkInMQTT();
 void subscribeToMQTT(char *p_topic);
-void publishToMQTT(char *p_topic, char *p_payload, bool retain = true);
+bool publishToMQTT(const char *p_topic, const char *p_payload, bool retain = true);
 void handleMQTTMessage(char *topic, byte *payload, unsigned int length);
 
 // variables declaration
 bool boot = true;
 char MQTT_PAYLOAD[8] = {0};
-char MQTT_AVAILABILITY_TOPIC[sizeof(ESP_CHIP_ID) + sizeof(MQTT_AVAILABILITY_TOPIC_TEMPLATE) - 2] = {0};
-char MQTT_WIFI_QUALITY_TOPIC[sizeof(ESP_CHIP_ID) + sizeof(MQTT_SENSOR_TOPIC_TEMPLATE) + sizeof(WIFI_QUALITY_SENSOR_NAME) - 4] = {0};
-char MQTT_DOOR_SENSOR_TOPIC[sizeof(ESP_CHIP_ID) + sizeof(MQTT_SENSOR_TOPIC_TEMPLATE) + sizeof(DOOR_SENSOR_STATE_TOPIC) - 4] = {0};
-char MQTT_STEPPER_TOPIC[sizeof(ESP_CHIP_ID) + sizeof(MQTT_SENSOR_TOPIC_TEMPLATE) + sizeof(STEPPER_STATE_TOPIC) - 4] = {0};
-char MQTT_STEPPER_ACTION_COMMAND_TOPIC[sizeof(ESP_CHIP_ID) + sizeof(MQTT_SENSOR_COMMAND_TOPIC_TEMPLATE) + sizeof(STEPPER_CMD_ACTION) - 4] = {0};
-char MQTT_STEPPER_POSITION_COMMAND_TOPIC[sizeof(ESP_CHIP_ID) + sizeof(MQTT_SENSOR_COMMAND_TOPIC_TEMPLATE) + sizeof(STEPPER_CMD_POSITION) - 4] = {0};
-char MQTT_DOOR_LOCK_TOPIC[sizeof(ESP_CHIP_ID) + sizeof(MQTT_SENSOR_TOPIC_TEMPLATE) + sizeof(DOOR_LOCK_STATE_TOPIC) - 4] = {0};
-char MQTT_DOOR_LOCK_COMMAND_TOPIC[sizeof(ESP_CHIP_ID) + sizeof(MQTT_SENSOR_COMMAND_TOPIC_TEMPLATE) + sizeof(DOOR_LOCK_STATE_TOPIC) - 4] = {0};
+char MQTT_DEVICE_AVAILABILITY_STATE_TOPIC[sizeof(ESP_CHIP_ID) + sizeof(MQTT_DEVICE_AVAILABILITY_TEMPLATE) - 2] = {0};
+char MQTT_DEVICE_COMMAND_TOPIC[sizeof(ESP_CHIP_ID) + sizeof(MQTT_DEVICE_COMMAND_TEMPLATE) - 2] = {0};
+
+// wifi sensor
+char MQTT_WIFI_SIGNAL_STRENGTH_BASE[sizeof(MQTT_SENSOR_TEMPLATE) + sizeof(ESP_CHIP_ID) + sizeof(WIFI_SIGNAL_STRENGTH_SENSOR_NAME) - 4] = {0};
+char MQTT_WIFI_SIGNAL_STRENGTH_STATE_TOPIC[sizeof(MQTT_STATE_TEMPLATE) + sizeof(MQTT_WIFI_SIGNAL_STRENGTH_BASE) - 2] = {0};
+char MQTT_WIFI_SIGNAL_STRENGTH_DISCOVERY_TOPIC[sizeof(MQTT_DISCOVERY_TEMPLATE) + sizeof(MQTT_WIFI_SIGNAL_STRENGTH_BASE) - 2] = {0};
+
+// siren
+char MQTT_SIREN_BASE[sizeof(MQTT_SWITCH_TEMPLATE) + sizeof(ESP_CHIP_ID) + sizeof(SIREN_NAME) - 4] = {0};
+char MQTT_SIREN_STATE_TOPIC[sizeof(MQTT_STATE_TEMPLATE) + sizeof(MQTT_SIREN_BASE) - 2] = {0};
+char MQTT_SIREN_COMMAND_TOPIC[sizeof(MQTT_COMMAND_TEMPLATE) + sizeof(MQTT_SIREN_BASE) - 2] = {0};
+char MQTT_SIREN_DISCOVERY_TOPIC[sizeof(MQTT_DISCOVERY_TEMPLATE) + sizeof(MQTT_SIREN_BASE) - 2] = {0};
+
+// door sensor
+char MQTT_DOOR_BASE[sizeof(MQTT_BINARY_SENSOR_TEMPLATE) + sizeof(ESP_CHIP_ID) + sizeof(DOOR_SENSOR_NAME) - 4] = {0};
+char MQTT_DOOR_STATE_TOPIC[sizeof(MQTT_STATE_TEMPLATE) + sizeof(MQTT_DOOR_BASE) - 2] = {0};
+char MQTT_DOOR_DISCOVERY_TOPIC[sizeof(MQTT_DISCOVERY_TEMPLATE) + sizeof(MQTT_DOOR_BASE) - 2] = {0};
+
+// lock
+char MQTT_LOCK_BASE[sizeof(MQTT_LOCK_TEMPLATE) + sizeof(ESP_CHIP_ID) + sizeof(LOCK_NAME) - 4] = {0};
+char MQTT_LOCK_STATE_TOPIC[sizeof(MQTT_STATE_TEMPLATE) + sizeof(MQTT_LOCK_BASE) - 2] = {0};
+char MQTT_LOCK_COMMAND_TOPIC[sizeof(MQTT_COMMAND_TEMPLATE) + sizeof(MQTT_LOCK_BASE) - 2] = {0};
+char MQTT_LOCK_DISCOVERY_TOPIC[sizeof(MQTT_DISCOVERY_TEMPLATE) + sizeof(MQTT_LOCK_BASE) - 2] = {0};
+
+// cover
+char MQTT_COVER_BASE[sizeof(MQTT_COVER_TEMPLATE) + sizeof(ESP_CHIP_ID) + sizeof(STEPPER_NAME) - 4] = {0};
+char MQTT_COVER_STATE_TOPIC[sizeof(MQTT_STATE_TEMPLATE) + sizeof(MQTT_COVER_BASE) - 2] = {0};
+char MQTT_COVER_COMMAND_TOPIC[sizeof(MQTT_COMMAND_TEMPLATE) + sizeof(MQTT_COVER_BASE) - 2] = {0};
+char MQTT_COVER_DISCOVERY_TOPIC[sizeof(MQTT_DISCOVERY_TEMPLATE) + sizeof(MQTT_COVER_BASE) - 2] = {0};
+// cover position
+char MQTT_COVER_POSITION_BASE[sizeof(MQTT_JOIN_TEMPLATE) + sizeof(MQTT_COVER_BASE) + sizeof(STEPPER_POSITION_NAME) - 4] = {0};
+char MQTT_COVER_POSITION_STATE_TOPIC[sizeof(MQTT_STATE_TEMPLATE) + sizeof(MQTT_COVER_POSITION_BASE) - 2] = {0};
+char MQTT_COVER_POSITION_COMMAND_TOPIC[sizeof(MQTT_COMMAND_TEMPLATE) + sizeof(MQTT_COVER_POSITION_BASE) - 2] = {0};
 
 // Initialize the mqtt mqttClient object
 PubSubClient mqttClient(wifiClient);
@@ -79,15 +106,19 @@ PubSubClient mqttClient(wifiClient);
 ///////////////////////////////////////////////////////////////////////////
 // function declaration
 void processStepper();
+void publishStepperState();
+void publishStepperPosition();
 
 // variables declaration
-int currentPosition = 0;
-int newPosition = 0;
-char positionPublish[50];
-bool moving = false;
+int currentPosition = STEPPER_POSITION_CLOSED;
+int newPosition = STEPPER_POSITION_CLOSED;
+int lastPublishedStepperPosition;
 
-// Initialize the AH_EasyDriver object
-AH_EasyDriver doorStepper(STEPPER_STEPS_PER_REV, STEPPER_DIR_PIN, STEPPER_STEP_PIN, STEPPER_MICROSTEP_1_PIN, STEPPER_MICROSTEP_2_PIN, STEPPER_SLEEP_PIN);
+String stepperState = MQTT_PAYLOAD_CLOSE;
+String lastPublishedStepperState;
+
+// Initialize the SwartNinjaSMD object
+SwartNinjaSMD doorStepper(SwartNinjaSMDMode::TB6600_one, STEPPER_DIR_PIN, STEPPER_PUL_PIN, STEPPER_ENE_PIN);
 
 ///////////////////////////////////////////////////////////////////////////
 //   SwartNinjaSensors
@@ -96,20 +127,23 @@ AH_EasyDriver doorStepper(STEPPER_STEPS_PER_REV, STEPPER_DIR_PIN, STEPPER_STEP_P
 void handleSwartNinjaSensorUpdate(char *value, int pin, const char *event);
 
 // initialize the SwartNinaRSW object
-SwartNinjaRSW doorSensor(DOOR_PIN, handleSwartNinjaSensorUpdate);
+SwartNinjaRSW doorSensor(DOOR_PIN, handleSwartNinjaSensorUpdate, false);
+SwartNinjaSW siren(SIREN_PIN);
 
 ///////////////////////////////////////////////////////////////////////////
-//   Doorlock
+//   Lock
 ///////////////////////////////////////////////////////////////////////////
-void publishDoorLockState();
+void publishLockState();
 // initialize the servo objects
 Servo doorLock;
 bool isLocked = false;
 
 ///////////////////////////////////////////////////////////////////////////
-//   SimpleTimer
+//   Home Assistant
 ///////////////////////////////////////////////////////////////////////////
-SimpleTimer timer;
+void hassAutoConfig();
+bool registerSensor(DynamicJsonDocument doc, char *topic);
+void unregisterSensors();
 
 ///////////////////////////////////////////////////////////////////////////
 //   MAIN SETUP AND LOOP
@@ -120,10 +154,6 @@ void setup()
 
   // Set the chip ID
   sprintf(ESP_CHIP_ID, "%06X", ESP.getChipId());
-
-  doorStepper.setMicrostepping(STEPPER_MICROSTEPPING); // 0 -> Full Step
-  doorStepper.setSpeedRPM(STEPPER_SPEED);              // set speed in RPM, rotations per minute
-  doorStepper.sleepOFF();
 
   // WIFI
   setupWiFi();
@@ -136,14 +166,17 @@ void setup()
   ArduinoOTA.setHostname(OTA_HOSTNAME);
   ArduinoOTA.begin();
 
-  delay(10);
-  doorSensor.setup();
-  doorLock.attach(DOOR_LOCK_PIN);
-  doorLock.write(DOOR_LOCK_STEPS_TO_OPEN);
-  isLocked = (doorLock.read() != DOOR_LOCK_STEPS_TO_OPEN);
+  Serial.print(F("[OTA] HOSTNAME: "));
+  Serial.println(OTA_HOSTNAME);
 
-  timer.setInterval(((1 << STEPPER_MICROSTEPPING) * 5800) / STEPPER_SPEED, processStepper);
-  timer.setInterval(120000, checkInMQTT);
+  delay(10);
+  siren.setup();
+  doorSensor.setup();
+  doorLock.attach(LOCK_PIN);
+  doorLock.write(LOCK_POSITION_OPEN);
+
+  // stepper motor
+  doorStepper.disableDriver();
 }
 
 void loop()
@@ -165,11 +198,11 @@ void loop()
     ArduinoOTA.handle();
 
     doorSensor.loop();
+    processStepper();
 
     // Check WiFi signal
     loopWiFiSensor();
-
-    timer.run();
+    checkInMQTT();
   }
 }
 
@@ -181,35 +214,71 @@ void processStepper()
   if (isLocked)
   {
 #ifdef DEBUG
-    Serial.println("[DEBUG]: processStepper - EXIT, door is locked.");
+    Serial.println("[DEBUG] processStepper - EXIT, door is locked.");
 #endif
     return;
   }
 
   if (newPosition > currentPosition)
   {
-    doorStepper.sleepON();
-    doorStepper.revolve(1);
-    currentPosition++;
-    moving = true;
-  }
-
-  if (newPosition < currentPosition)
-  {
-    doorStepper.sleepON();
+    stepperState = MQTT_STATE_OPENING;
+    doorStepper.enableDriver();
     doorStepper.revolve(-1);
-    currentPosition--;
-    moving = true;
+    currentPosition++;
   }
-  if (newPosition == currentPosition && moving == true)
+  else if (newPosition < currentPosition)
   {
-    doorStepper.sleepOFF();
-    String temp_str = String(currentPosition);
-    temp_str.toCharArray(positionPublish, temp_str.length() + 1);
-    publishToMQTT(MQTT_STEPPER_TOPIC, positionPublish);
-
-    moving = false;
+    stepperState = MQTT_STATE_CLOSING;
+    doorStepper.enableDriver();
+    doorStepper.revolve(1);
+    currentPosition--;
   }
+  else if (newPosition == currentPosition && (stepperState != MQTT_STATE_CLOSED || stepperState != MQTT_STATE_CLOSED))
+  {
+    doorStepper.disableDriver();
+    stepperState = (currentPosition == STEPPER_POSITION_CLOSED) ? MQTT_STATE_CLOSED : MQTT_STATE_OPEN;
+  }
+
+  if (!stepperState.equalsIgnoreCase(lastPublishedStepperState))
+  {
+    publishStepperState();
+  }
+
+  if (currentPosition != lastPublishedStepperPosition)
+  {
+    publishStepperPosition();
+  }
+}
+
+void publishStepperState()
+{
+  char payload[stepperState.length() + 1];
+  stepperState.toCharArray(payload, stepperState.length() + 1);
+
+  if (publishToMQTT(MQTT_COVER_STATE_TOPIC, payload, true))
+  {
+    lastPublishedStepperState = stepperState;
+  }
+}
+
+void publishStepperPosition()
+{
+  char payload[sizeof(int) * 8 + 1];
+  itoa(currentPosition, payload, 10);
+
+  if (publishToMQTT(MQTT_COVER_POSITION_STATE_TOPIC, payload, true))
+  {
+    lastPublishedStepperPosition = currentPosition;
+  }
+}
+
+///////////////////////////////////////////////////////////////////////////
+//   Lock
+///////////////////////////////////////////////////////////////////////////
+void publishLockState()
+{
+  char *statePayload = strdup((isLocked) ? MQTT_STATE_LOCKED : MQTT_STATE_UNLOCKED);
+  publishToMQTT(MQTT_LOCK_STATE_TOPIC, statePayload, true);
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -217,10 +286,10 @@ void processStepper()
 ///////////////////////////////////////////////////////////////////////////
 void handleSwartNinjaSensorUpdate(char *value, int pin, const char *event)
 {
-  if (event == SN_RSW_SENSOR_EVT)
+  if (strcmp(event, SN_RSW_SENSOR_EVT) == 0)
   {
-    // publish motion
-    publishToMQTT(MQTT_DOOR_SENSOR_TOPIC, value);
+    // publish door open or closed
+    publishToMQTT(MQTT_DOOR_STATE_TOPIC, value);
   }
 }
 
@@ -307,15 +376,15 @@ void onGotIP(const WiFiEventStationModeGotIP &event)
 void loopWiFiSensor(void)
 {
   static unsigned long lastWiFiQualityMeasure = 0;
-  if (lastWiFiQualityMeasure + WIFI_QUALITY_INTERVAL <= millis() || previousWiFiSignalStrength == -1)
+  if (lastWiFiQualityMeasure + WIFI_SIGNAL_STRENGTH_INTERVAL <= millis() || previousWiFiSignalStrength == -1)
   {
     lastWiFiQualityMeasure = millis();
     int currentWiFiSignalStrength = getWiFiSignalStrength();
-    if (isnan(previousWiFiSignalStrength) || currentWiFiSignalStrength <= previousWiFiSignalStrength - WIFI_QUALITY_OFFSET_VALUE || currentWiFiSignalStrength >= previousWiFiSignalStrength + WIFI_QUALITY_OFFSET_VALUE)
+    if (isnan(previousWiFiSignalStrength) || currentWiFiSignalStrength <= previousWiFiSignalStrength - WIFI_SIGNAL_STRENGTH_OFFSET_VALUE || currentWiFiSignalStrength >= previousWiFiSignalStrength + WIFI_SIGNAL_STRENGTH_OFFSET_VALUE)
     {
       previousWiFiSignalStrength = currentWiFiSignalStrength;
-      dtostrf(currentWiFiSignalStrength, 2, 2, MQTT_PAYLOAD);
-      publishToMQTT(MQTT_WIFI_QUALITY_TOPIC, MQTT_PAYLOAD);
+      dtostrf(currentWiFiSignalStrength, 4, 2, MQTT_PAYLOAD);
+      publishToMQTT(MQTT_WIFI_SIGNAL_STRENGTH_STATE_TOPIC, MQTT_PAYLOAD);
     }
   }
 }
@@ -336,6 +405,153 @@ int getWiFiSignalStrength(void)
 }
 
 ///////////////////////////////////////////////////////////////////////////
+//   Home Assistant
+///////////////////////////////////////////////////////////////////////////
+
+void hassAutoConfig()
+{
+  char unique_id[40];
+  char name[80];
+  DynamicJsonDocument config(1024);
+  Serial.println("hassAutoConfig - Start");
+
+  sprintf(unique_id, "%s_wifi_signal_strength", ESP_CHIP_ID);
+  sprintf(name, DEVICE_NAME_TEMPLATE, unique_id);
+  config["uniq_id"] = unique_id;
+  config["name"] = name;
+  config["dev_cla"] = "signal_strength";                    // device_class
+  config["unit_of_meas"] = "%";                             // unit_of_measurement
+  config["stat_t"] = MQTT_WIFI_SIGNAL_STRENGTH_STATE_TOPIC; // state_topic
+  registerSensor(config, MQTT_WIFI_SIGNAL_STRENGTH_DISCOVERY_TOPIC);
+
+  config.clear();
+  sprintf(unique_id, "%s_door", ESP_CHIP_ID);
+  sprintf(name, DEVICE_NAME_TEMPLATE, unique_id);
+  config["uniq_id"] = unique_id;
+  config["name"] = name;
+  config["dev_cla"] = "door";               //device_class
+  config["stat_t"] = MQTT_DOOR_STATE_TOPIC; //state_topic
+  config["pl_off"] = MQTT_PAYLOAD_OFF;      //payload_off
+  config["pl_on"] = MQTT_PAYLOAD_ON;        //payload_on
+  registerSensor(config, MQTT_DOOR_DISCOVERY_TOPIC);
+
+  config.clear();
+  sprintf(unique_id, "%s_siren", ESP_CHIP_ID);
+  sprintf(name, DEVICE_NAME_TEMPLATE, unique_id);
+  config["uniq_id"] = unique_id;
+  config["name"] = name;
+  config["~"] = MQTT_SIREN_BASE; //topic base
+  config["stat_t"] = "~/state";  //state_topic
+  config["cmd_t"] = "~/set";     //command_topic
+  registerSensor(config, MQTT_SIREN_DISCOVERY_TOPIC);
+
+  config.clear();
+  sprintf(unique_id, "%s_lock", ESP_CHIP_ID);
+  sprintf(name, DEVICE_NAME_TEMPLATE, unique_id);
+  config["uniq_id"] = unique_id;
+  config["name"] = name;
+  config["~"] = MQTT_LOCK_BASE;                  //topic base
+  config["stat_t"] = "~/state";                  //state_topic
+  config["stat_locked"] = MQTT_STATE_LOCKED;     //state_locked
+  config["stat_unlocked"] = MQTT_STATE_UNLOCKED; //state_unlocked
+  config["cmd_t"] = "~/set";                     //command_topic
+  config["pl_lock"] = MQTT_PAYLOAD_LOCK;         //payload_lock
+  config["pl_unlk"] = MQTT_PAYLOAD_UNLOCK;       //payload_unlock
+  registerSensor(config, MQTT_LOCK_DISCOVERY_TOPIC);
+
+  config.clear();
+  sprintf(unique_id, "%s_cover", ESP_CHIP_ID);
+  sprintf(name, DEVICE_NAME_TEMPLATE, unique_id);
+  config["uniq_id"] = unique_id;
+  config["name"] = name;
+  config["dev_cla"] = "door";                   //device_class
+  config["~"] = MQTT_COVER_BASE;                //topic base
+  config["stat_t"] = "~/state";                 //state_topic
+  config["cmd_t"] = "~/set";                    //state_topic
+  config["pos_t"] = "~/position/state";         //position_topic
+  config["set_pos_t"] = "~/position/set";       //set_position_topic
+  config["pl_cls"] = MQTT_PAYLOAD_CLOSE;        //payload_close
+  config["pl_open"] = MQTT_PAYLOAD_OPEN;        //payload_open
+  config["pl_stop"] = MQTT_PAYLOAD_STOP;        //payload_stop
+  config["pos_clsd"] = STEPPER_POSITION_CLOSED; //position_closed
+  config["pos_open"] = STEPPER_POSITION_OPEN;   //position_open
+  config["stat_clsd"] = MQTT_STATE_CLOSED;      //state_closed
+  config["stat_closing"] = MQTT_STATE_CLOSING;  //state_closing
+  config["stat_open"] = MQTT_STATE_OPEN;        //state_open
+  config["stat_opening"] = MQTT_STATE_OPENING;  //state_opening
+  registerSensor(config, MQTT_COVER_DISCOVERY_TOPIC);
+}
+
+/*
+ * Add device to descovery topic and send config
+ */
+bool registerSensor(DynamicJsonDocument doc, char *topic)
+{
+  doc["avty_t"] = MQTT_DEVICE_AVAILABILITY_STATE_TOPIC; // availability_topic
+  doc["pl_avail"] = MQTT_PAYLOAD_AVAILABLE;             // payload_available
+  doc["pl_not_avail"] = MQTT_PAYLOAD_NOT_AVAILABLE;     // payload_not_available
+
+  JsonObject device = doc.createNestedObject("dev");       // device
+  JsonArray identifiers = device.createNestedArray("ids"); // identifiers
+  identifiers.add(ESP_CHIP_ID);
+  device["name"] = DEVICE_FRIENDLY_NAME; // name
+  device["mf"] = DEVICE_MANUFACTURER;    // manufacturer
+  device["mdl"] = DEVICE_MODEL;          // model
+  device["sw"] = DEVICE_VERSION;         // sw_version
+
+  String output;
+  serializeJson(doc, output);
+
+  char *buffer = new char[output.length() + 1];
+  strcpy(buffer, output.c_str());
+
+#if defined(DEBUG)
+  bool result = true;
+  Serial.println("-----------------------------------------------");
+  Serial.print("topic: ");
+  Serial.println(topic);
+  Serial.print("payload: ");
+  Serial.println(buffer);
+  Serial.println("-----------------------------------------------");
+#else
+  bool result = publishToMQTT(topic, buffer);
+#endif
+
+  // Cleanup
+  delete[] buffer;
+
+  return result;
+}
+
+void unregisterSensors()
+{
+  if (!publishToMQTT(MQTT_WIFI_SIGNAL_STRENGTH_DISCOVERY_TOPIC, ""))
+  {
+    Serial.println("Failed to unregister wifi sensor");
+  }
+
+  if (!publishToMQTT(MQTT_DOOR_DISCOVERY_TOPIC, ""))
+  {
+    Serial.println("Failed to unregister door sensor");
+  }
+
+  if (!publishToMQTT(MQTT_SIREN_DISCOVERY_TOPIC, ""))
+  {
+    Serial.println("Failed to unregister siren");
+  }
+
+  if (!publishToMQTT(MQTT_LOCK_DISCOVERY_TOPIC, ""))
+  {
+    Serial.println("Failed to unregister lock");
+  }
+
+  if (!publishToMQTT(MQTT_COVER_DISCOVERY_TOPIC, ""))
+  {
+    Serial.println("Failed to unregister cover");
+  }
+}
+
+///////////////////////////////////////////////////////////////////////////
 //   MQTT
 ///////////////////////////////////////////////////////////////////////////
 
@@ -344,98 +560,247 @@ int getWiFiSignalStrength(void)
  */
 void setupMQTT()
 {
-  sprintf(MQTT_AVAILABILITY_TOPIC, MQTT_AVAILABILITY_TOPIC_TEMPLATE, ESP_CHIP_ID);
+  Serial.println();
+  Serial.println("[MQTT] -------------------------------- MQTT TOPICS --------------------------------");
+  Serial.println();
+  Serial.println("[MQTT] --- Device");
 
-  Serial.print(F("[MQTT]: MQTT availability topic: "));
-  Serial.println(MQTT_AVAILABILITY_TOPIC);
+  sprintf(MQTT_DEVICE_AVAILABILITY_STATE_TOPIC, MQTT_DEVICE_AVAILABILITY_TEMPLATE, ESP_CHIP_ID);
+  Serial.print(F("[MQTT] Availability: "));
+  Serial.println(MQTT_DEVICE_AVAILABILITY_STATE_TOPIC);
 
-  sprintf(MQTT_WIFI_QUALITY_TOPIC, MQTT_SENSOR_TOPIC_TEMPLATE, ESP_CHIP_ID, WIFI_QUALITY_SENSOR_NAME);
-  Serial.print(F("[MQTT]: MQTT WiFi Quality topic: "));
-  Serial.println(MQTT_WIFI_QUALITY_TOPIC);
+  sprintf(MQTT_DEVICE_COMMAND_TOPIC, MQTT_DEVICE_COMMAND_TEMPLATE, ESP_CHIP_ID);
+  Serial.print(F("[MQTT] Command: "));
+  Serial.println(MQTT_DEVICE_COMMAND_TOPIC);
 
-  sprintf(MQTT_DOOR_SENSOR_TOPIC, MQTT_SENSOR_TOPIC_TEMPLATE, ESP_CHIP_ID, DOOR_SENSOR_STATE_TOPIC);
-  Serial.print(F("[MQTT]: MQTT Door topic: "));
-  Serial.println(MQTT_DOOR_SENSOR_TOPIC);
+  Serial.println();
+  Serial.println("[MQTT] --- WiFi Signal Strength");
+  sprintf(MQTT_WIFI_SIGNAL_STRENGTH_BASE, MQTT_SENSOR_TEMPLATE, ESP_CHIP_ID, WIFI_SIGNAL_STRENGTH_SENSOR_NAME);
 
-  sprintf(MQTT_STEPPER_TOPIC, MQTT_SENSOR_TOPIC_TEMPLATE, ESP_CHIP_ID, STEPPER_STATE_TOPIC);
-  Serial.print(F("[MQTT]: MQTT Stepper topic: "));
-  Serial.println(MQTT_STEPPER_TOPIC);
+  sprintf(MQTT_WIFI_SIGNAL_STRENGTH_DISCOVERY_TOPIC, MQTT_DISCOVERY_TEMPLATE, MQTT_WIFI_SIGNAL_STRENGTH_BASE);
+  Serial.print(F("[MQTT] Config: "));
+  Serial.println(MQTT_WIFI_SIGNAL_STRENGTH_DISCOVERY_TOPIC);
 
-  sprintf(MQTT_STEPPER_ACTION_COMMAND_TOPIC, MQTT_SENSOR_COMMAND_TOPIC_TEMPLATE, ESP_CHIP_ID, STEPPER_CMD_ACTION);
-  Serial.print(F("[MQTT]: MQTT Stepper action topic: "));
-  Serial.println(MQTT_STEPPER_ACTION_COMMAND_TOPIC);
+  sprintf(MQTT_WIFI_SIGNAL_STRENGTH_STATE_TOPIC, MQTT_STATE_TEMPLATE, MQTT_WIFI_SIGNAL_STRENGTH_BASE);
+  Serial.print(F("[MQTT] State: "));
+  Serial.println(MQTT_WIFI_SIGNAL_STRENGTH_STATE_TOPIC);
 
-  sprintf(MQTT_STEPPER_POSITION_COMMAND_TOPIC, MQTT_SENSOR_COMMAND_TOPIC_TEMPLATE, ESP_CHIP_ID, STEPPER_CMD_POSITION);
-  Serial.print(F("[MQTT]: MQTT Stepper position topic: "));
-  Serial.println(MQTT_STEPPER_POSITION_COMMAND_TOPIC);
+  Serial.println();
+  Serial.println("[MQTT] --- Door");
+  sprintf(MQTT_DOOR_BASE, MQTT_BINARY_SENSOR_TEMPLATE, ESP_CHIP_ID, DOOR_SENSOR_NAME);
 
-  sprintf(MQTT_DOOR_LOCK_TOPIC, MQTT_SENSOR_TOPIC_TEMPLATE, ESP_CHIP_ID, DOOR_LOCK_STATE_TOPIC);
-  Serial.print(F("[MQTT]: MQTT Door Lock topic: "));
-  Serial.println(MQTT_DOOR_LOCK_TOPIC);
+  sprintf(MQTT_DOOR_DISCOVERY_TOPIC, MQTT_DISCOVERY_TEMPLATE, MQTT_DOOR_BASE);
+  Serial.print(F("[MQTT] Config: "));
+  Serial.println(MQTT_DOOR_DISCOVERY_TOPIC);
 
-  sprintf(MQTT_DOOR_LOCK_COMMAND_TOPIC, MQTT_SENSOR_COMMAND_TOPIC_TEMPLATE, ESP_CHIP_ID, DOOR_LOCK_STATE_TOPIC);
-  Serial.print(F("[MQTT]: MQTT Door Lock Command topic: "));
-  Serial.println(MQTT_DOOR_LOCK_COMMAND_TOPIC);
+  sprintf(MQTT_DOOR_STATE_TOPIC, MQTT_STATE_TEMPLATE, MQTT_DOOR_BASE);
+  Serial.print(F("[MQTT] State: "));
+  Serial.println(MQTT_DOOR_STATE_TOPIC);
+
+  Serial.println();
+  Serial.println("[MQTT] --- Siren");
+  sprintf(MQTT_SIREN_BASE, MQTT_SWITCH_TEMPLATE, ESP_CHIP_ID, SIREN_NAME);
+
+  sprintf(MQTT_SIREN_DISCOVERY_TOPIC, MQTT_DISCOVERY_TEMPLATE, MQTT_SIREN_BASE);
+  Serial.print(F("[MQTT] Config: "));
+  Serial.println(MQTT_SIREN_DISCOVERY_TOPIC);
+
+  sprintf(MQTT_SIREN_STATE_TOPIC, MQTT_STATE_TEMPLATE, MQTT_SIREN_BASE);
+  Serial.print(F("[MQTT] State: "));
+  Serial.println(MQTT_SIREN_STATE_TOPIC);
+
+  sprintf(MQTT_SIREN_COMMAND_TOPIC, MQTT_COMMAND_TEMPLATE, MQTT_SIREN_BASE);
+  Serial.print(F("[MQTT] Command: "));
+  Serial.println(MQTT_SIREN_COMMAND_TOPIC);
+
+  Serial.println();
+  Serial.println("[MQTT] --- Lock");
+  sprintf(MQTT_LOCK_BASE, MQTT_LOCK_TEMPLATE, ESP_CHIP_ID, LOCK_NAME);
+
+  sprintf(MQTT_LOCK_DISCOVERY_TOPIC, MQTT_DISCOVERY_TEMPLATE, MQTT_LOCK_BASE);
+  Serial.print(F("[MQTT] Config: "));
+  Serial.println(MQTT_LOCK_DISCOVERY_TOPIC);
+
+  sprintf(MQTT_LOCK_STATE_TOPIC, MQTT_STATE_TEMPLATE, MQTT_LOCK_BASE);
+  Serial.print(F("[MQTT] State: "));
+  Serial.println(MQTT_LOCK_STATE_TOPIC);
+
+  sprintf(MQTT_LOCK_COMMAND_TOPIC, MQTT_COMMAND_TEMPLATE, MQTT_LOCK_BASE);
+  Serial.print(F("[MQTT] Command: "));
+  Serial.println(MQTT_LOCK_COMMAND_TOPIC);
+
+  Serial.println();
+  Serial.println("[MQTT] --- Cover");
+  sprintf(MQTT_COVER_BASE, MQTT_COVER_TEMPLATE, ESP_CHIP_ID, STEPPER_NAME);
+  sprintf(MQTT_COVER_POSITION_BASE, MQTT_JOIN_TEMPLATE, MQTT_COVER_BASE, STEPPER_POSITION_NAME);
+
+  sprintf(MQTT_COVER_DISCOVERY_TOPIC, MQTT_DISCOVERY_TEMPLATE, MQTT_COVER_BASE);
+  Serial.print(F("[MQTT] Config: "));
+  Serial.println(MQTT_COVER_DISCOVERY_TOPIC);
+
+  sprintf(MQTT_COVER_STATE_TOPIC, MQTT_STATE_TEMPLATE, MQTT_COVER_BASE);
+  Serial.print(F("[MQTT] State: "));
+  Serial.println(MQTT_COVER_STATE_TOPIC);
+
+  sprintf(MQTT_COVER_COMMAND_TOPIC, MQTT_COMMAND_TEMPLATE, MQTT_COVER_BASE);
+  Serial.print(F("[MQTT] Command: "));
+  Serial.println(MQTT_COVER_COMMAND_TOPIC);
+
+  sprintf(MQTT_COVER_POSITION_STATE_TOPIC, MQTT_STATE_TEMPLATE, MQTT_COVER_POSITION_BASE);
+  Serial.print(F("[MQTT] Position State: "));
+  Serial.println(MQTT_COVER_POSITION_STATE_TOPIC);
+
+  sprintf(MQTT_COVER_POSITION_COMMAND_TOPIC, MQTT_COMMAND_TEMPLATE, MQTT_COVER_POSITION_BASE);
+  Serial.print(F("[MQTT] Position Command: "));
+  Serial.println(MQTT_COVER_POSITION_COMMAND_TOPIC);
+
+  Serial.println("----------------------------------------------------------------------------");
 
   mqttClient.setServer(MQTT_SERVER, MQTT_SERVER_PORT);
   mqttClient.setCallback(handleMQTTMessage);
 }
 
-void handleMQTTMessage(char *topic, byte *payload, unsigned int length)
+void publishAllState()
 {
-  String newTopic = topic;
-  payload[length] = '\0';
-  String newPayload = String((char *)payload);
+  // wifi signal strength
+  previousWiFiSignalStrength = getWiFiSignalStrength();
+  dtostrf(previousWiFiSignalStrength, 4, 2, MQTT_PAYLOAD);
+  publishToMQTT(MQTT_WIFI_SIGNAL_STRENGTH_STATE_TOPIC, MQTT_PAYLOAD);
+
+  // siren
+  publishToMQTT(MQTT_SIREN_STATE_TOPIC, siren.getState(), true);
+
+  // binary door sensor
+  publishToMQTT(MQTT_DOOR_STATE_TOPIC, doorSensor.getCurrentState(), true);
+
+  // lock state
+  publishLockState();
+
+  // cover state and position
+  publishStepperState();
+  publishStepperPosition();
+}
+
+void systemCheckAndSet()
+{
+  bool isClosed = !doorSensor.getCurrentRawState();
 
 #ifdef DEBUG
-  Serial.print("[MQTT]: handleMQTTMessage - Message arrived, topic: ");
-  Serial.print(topic);
+  Serial.print("[DEBUG] System Setup - Door is ");
+  Serial.println((isClosed) ? "CLOSED" : "OPEN");
+#endif
+
+  newPosition = (isClosed) ? STEPPER_POSITION_CLOSED : STEPPER_POSITION_OPEN;
+  currentPosition = newPosition;
+  stepperState = (currentPosition == STEPPER_POSITION_CLOSED) ? MQTT_STATE_CLOSED : MQTT_STATE_OPEN;
+
+  doorLock.write((isClosed) ? LOCK_POSITION_CLOSED : LOCK_POSITION_OPEN);
+  isLocked = (doorLock.read() != LOCK_POSITION_OPEN);
+}
+
+void checkInMQTT()
+{
+  static unsigned long lastCheckIn = 0;
+  if (lastCheckIn + MQTT_CHECKIN_INTERVAL <= millis())
+  {
+    lastCheckIn = millis();
+    publishToMQTT(MQTT_DEVICE_AVAILABILITY_STATE_TOPIC, MQTT_PAYLOAD_AVAILABLE, false);
+  }
+}
+
+void handleMQTTMessage(char *topic, byte *payload, unsigned int length)
+{
+  String strTopic = topic;
+  payload[length] = '\0';
+  String strPayload = String((char *)payload);
+
+#ifdef MQTT_DEBUG
+  Serial.print("[MQTT_DEBUG] handleMQTTMessage - Message arrived, topic: ");
+  Serial.print(strTopic);
   Serial.print(", payload: ");
-  Serial.println(newPayload);
+  Serial.println(strPayload);
   Serial.println();
 #endif
 
-  if (newTopic == MQTT_STEPPER_ACTION_COMMAND_TOPIC)
+  if (strTopic.equals(MQTT_DEVICE_COMMAND_TOPIC))
   {
-    if (newPayload == "CLOSE")
+    if (strPayload.equalsIgnoreCase(MQTT_CMD_RESET))
     {
-      newPosition = STEPS_TO_CLOSE;
+      Serial.println("Restarting device");
+      systemCheckAndSet();
+      publishAllState();
     }
-    if (newPayload == "OPEN")
+    else if (strPayload.equalsIgnoreCase(MQTT_CMD_RESTART))
     {
-      newPosition = 0;
+      Serial.println("Restarting device");
+      ESP.restart();
     }
-    if (newPayload == "STOP")
+    else if (strPayload.equalsIgnoreCase(MQTT_CMD_STATE))
+    {
+      Serial.println("Sending all sensor state");
+      publishAllState();
+    }
+    else if (strPayload.equalsIgnoreCase(MQTT_CMD_REGISTER))
+    {
+      Serial.println("Forcing registration of sensor");
+      hassAutoConfig();
+      publishAllState();
+    }
+    else if (strPayload.equalsIgnoreCase(MQTT_CMD_UNREGISTER))
+    {
+      Serial.println("Forcing unregistration of sensor");
+      unregisterSensors();
+    }
+  }
+  else if (strTopic.equals(MQTT_COVER_COMMAND_TOPIC))
+  {
+    // if the door is locked dont change anything
+    if (isLocked)
+    {
+      return;
+    }
+    if (strPayload.equalsIgnoreCase(MQTT_PAYLOAD_CLOSE))
+    {
+      newPosition = STEPPER_POSITION_CLOSED;
+    }
+    else if (strPayload.equalsIgnoreCase(MQTT_PAYLOAD_OPEN))
+    {
+      newPosition = STEPPER_POSITION_OPEN;
+    }
+    else if (strPayload.equalsIgnoreCase(MQTT_PAYLOAD_STOP))
     {
       newPosition = currentPosition;
     }
   }
-  if (newTopic == MQTT_STEPPER_POSITION_COMMAND_TOPIC)
+  else if (strTopic.equals(MQTT_COVER_POSITION_COMMAND_TOPIC))
   {
-    int intPayload = newPayload.toInt();
-    if (boot)
+    // if the door is locked dont change anything
+    if (isLocked)
     {
-      newPosition = intPayload;
-      currentPosition = intPayload;
-      boot = false;
-    }else {
-      newPosition = intPayload;
+      return;
     }
+    newPosition = strPayload.toInt();
   }
-  if (newTopic == MQTT_DOOR_LOCK_COMMAND_TOPIC)
+  else if (strTopic.equals(MQTT_LOCK_COMMAND_TOPIC))
   {
-    if (newPayload.equalsIgnoreCase(MQTT_DOOR_LOCK_PAYLOAD_LOCK))
+    // check the door sensor to make sure the door is closed.
+    if (strPayload.equalsIgnoreCase(MQTT_PAYLOAD_LOCK) && !doorSensor.getCurrentRawState())
     {
-      doorLock.write(DOOR_LOCK_STEPS_TO_CLOSE);
-      Serial.println("LOCK THE DOOR");
+      doorLock.write(LOCK_POSITION_CLOSED);
     }
-    else if (newPayload.equalsIgnoreCase(MQTT_DOOR_LOCK_PAYLOAD_UNLOCK))
+    else if (strPayload.equalsIgnoreCase(MQTT_PAYLOAD_UNLOCK))
     {
-      doorLock.write(DOOR_LOCK_STEPS_TO_OPEN);
-      Serial.println("UNLOCK THE DOOR");
+      doorLock.write(LOCK_POSITION_OPEN);
     }
-    isLocked = (doorLock.read() != DOOR_LOCK_STEPS_TO_OPEN);
-    publishDoorLockState();
+    isLocked = (doorLock.read() != LOCK_POSITION_OPEN);
+    publishLockState();
+  }
+  else if (strTopic.equals(MQTT_SIREN_COMMAND_TOPIC))
+  {
+    if (siren.setState(strPayload.equalsIgnoreCase(MQTT_PAYLOAD_ON)))
+    {
+      publishToMQTT(MQTT_SIREN_STATE_TOPIC, siren.getState(), true);
+    }
   }
 }
 
@@ -451,30 +816,34 @@ void connectToMQTT()
     if (retries < 150)
     {
       Serial.println("[MQTT]: Attempting MQTT connection...");
-      if (mqttClient.connect(ESP_CHIP_ID, MQTT_USERNAME, MQTT_PASSWORD, MQTT_AVAILABILITY_TOPIC, 0, 1, "offline"))
+      if (mqttClient.connect(ESP_CHIP_ID, MQTT_USERNAME, MQTT_PASSWORD, MQTT_DEVICE_AVAILABILITY_STATE_TOPIC, 0, 1, MQTT_PAYLOAD_NOT_AVAILABLE))
       {
 
         Serial.println(F("[MQTT]: The mqttClient is successfully connected to the MQTT broker"));
-        publishToMQTT(MQTT_AVAILABILITY_TOPIC, "online");
+        publishToMQTT(MQTT_DEVICE_AVAILABILITY_STATE_TOPIC, MQTT_PAYLOAD_AVAILABLE, false);
         if (boot)
         {
-          Serial.println(F("[MQTT]: Rebooted"));
-          publishDoorLockState();
-        } else {
+          Serial.println(F("[MQTT]: Connected"));
+          systemCheckAndSet();
+          publishAllState();
+          boot = false;
+        }
+        else
+        {
           Serial.println(F("[MQTT]: Reconnected"));
         }
 
-        handleSwartNinjaSensorUpdate(doorSensor.getCurrentState(), doorSensor.getPinNumber(), SN_RSW_SENSOR_EVT);
-
-        // ... and resubscribe
-        subscribeToMQTT(MQTT_STEPPER_ACTION_COMMAND_TOPIC);
-        subscribeToMQTT(MQTT_STEPPER_POSITION_COMMAND_TOPIC);
-        subscribeToMQTT(MQTT_DOOR_LOCK_COMMAND_TOPIC);
+        // resubscribe to mqtt command topics
+        subscribeToMQTT(MQTT_DEVICE_COMMAND_TOPIC);
+        subscribeToMQTT(MQTT_SIREN_COMMAND_TOPIC);
+        subscribeToMQTT(MQTT_LOCK_COMMAND_TOPIC);
+        subscribeToMQTT(MQTT_COVER_COMMAND_TOPIC);
+        subscribeToMQTT(MQTT_COVER_POSITION_COMMAND_TOPIC);
       }
       else
       {
         retries++;
-#ifdef DEBUG
+
         Serial.println(F("[MQTT]: ERROR - The connection to the MQTT broker failed"));
         Serial.print(F("[MQTT]: MQTT username: "));
         Serial.println(MQTT_USERNAME);
@@ -484,7 +853,6 @@ void connectToMQTT()
         Serial.println(MQTT_SERVER);
         Serial.print(F("[MQTT]: Retries: "));
         Serial.println(retries);
-#endif
         // Wait 5 seconds before retrying
         delay(5000);
       }
@@ -496,17 +864,6 @@ void connectToMQTT()
   }
 }
 
-void checkInMQTT()
-{
-  publishToMQTT(MQTT_AVAILABILITY_TOPIC, "online", false);
-  timer.setTimeout(120000, checkInMQTT);
-}
-
-void publishDoorLockState()
-{
-  char *statePayload = strdup((isLocked) ? MQTT_DOOR_LOCK_STATE_LOCKED : MQTT_DOOR_LOCK_STATE_UNLOCKED);
-  publishToMQTT(MQTT_DOOR_LOCK_TOPIC, statePayload);
-}
 /*
   Function called to subscribe to a MQTT topic
 */
@@ -514,33 +871,43 @@ void subscribeToMQTT(char *p_topic)
 {
   if (mqttClient.subscribe(p_topic))
   {
-    Serial.print(F("[MQTT]: subscribeToMQTT - Sending the MQTT subscribe succeeded for topic: "));
+#ifdef MQTT_DEBUG
+    Serial.print(F("[MQTT_DEBUG] subscribeToMQTT - Sending the MQTT subscribe succeeded for topic: "));
     Serial.println(p_topic);
+#endif
   }
   else
   {
-    Serial.print(F("[MQTT]: subscribeToMQTT - ERROR, Sending the MQTT subscribe failed for topic: "));
+#ifdef MQTT_DEBUG
+    Serial.print(F("[MQTT_DEBUG] subscribeToMQTT - ERROR, Sending the MQTT subscribe failed for topic: "));
     Serial.println(p_topic);
+#endif
   }
 }
 
 /*
   Function called to publish to a MQTT topic with the given payload
 */
-void publishToMQTT(char *p_topic, char *p_payload, bool retain)
+bool publishToMQTT(const char *p_topic, const char *p_payload, bool retain)
 {
   if (mqttClient.publish(p_topic, p_payload, retain))
   {
-    Serial.print(F("[MQTT]: publishToMQTT - MQTT message published successfully, topic: "));
+#ifdef MQTT_DEBUG
+    Serial.print(F("[MQTT_DEBUG] publishToMQTT - MQTT message published successfully, topic: "));
     Serial.print(p_topic);
     Serial.print(F(", payload: "));
     Serial.println(p_payload);
+#endif
+    return true;
   }
   else
   {
-    Serial.println(F("[MQTT]: publishToMQTT - ERROR, MQTT message not published, either connection lost, or message too large. Topic: "));
+#ifdef MQTT_DEBUG
+    Serial.println(F("[MQTT_DEBUG] publishToMQTT - ERROR, MQTT message not published, either connection lost, or message too large. Topic: "));
     Serial.print(p_topic);
     Serial.print(F(" , payload: "));
     Serial.println(p_payload);
+#endif
+    return false;
   }
 }
