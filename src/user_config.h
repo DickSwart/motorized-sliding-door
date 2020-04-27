@@ -26,6 +26,7 @@
 #define MQTT_CHECKIN_INTERVAL 60000
 
 #define MQTT_DEVICE_AVAILABILITY_TEMPLATE "homeassistant/%s/state" // MQTT availability: online/offline
+#define MQTT_DEVICE_INFO_TEMPLATE "homeassistant/%s/info"
 #define MQTT_DEVICE_COMMAND_TEMPLATE "homeassistant/%s/set"
 
 #define MQTT_BINARY_SENSOR_TEMPLATE "homeassistant/binary_sensor/%s/%s"

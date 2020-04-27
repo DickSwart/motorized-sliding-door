@@ -45,6 +45,10 @@ WiFiEventHandler mConnectHandler;
 WiFiEventHandler mDisConnectHandler;
 WiFiEventHandler mGotIpHandler;
 
+String ipAddress;
+String subnet;
+String gateway;
+String connectedAPMac;
 // Initialize the Ethernet mqttClient object
 WiFiClient wifiClient;
 
@@ -54,6 +58,7 @@ WiFiClient wifiClient;
 // function declaration
 void setupMQTT();
 void publishAllState();
+void publishDeviceInfo();
 void connectToMQTT();
 void checkInMQTT();
 void subscribeToMQTT(char *p_topic);
@@ -64,6 +69,7 @@ void handleMQTTMessage(char *topic, byte *payload, unsigned int length);
 bool boot = true;
 char MQTT_PAYLOAD[8] = {0};
 char MQTT_DEVICE_AVAILABILITY_STATE_TOPIC[sizeof(ESP_CHIP_ID) + sizeof(MQTT_DEVICE_AVAILABILITY_TEMPLATE) - 2] = {0};
+char MQTT_DEVICE_INFO_TOPIC[sizeof(ESP_CHIP_ID) + sizeof(MQTT_DEVICE_INFO_TEMPLATE) - 2] = {0};
 char MQTT_DEVICE_COMMAND_TOPIC[sizeof(ESP_CHIP_ID) + sizeof(MQTT_DEVICE_COMMAND_TEMPLATE) - 2] = {0};
 
 // wifi sensor
@@ -343,7 +349,9 @@ void connectWiFi(void)
 void onConnected(const WiFiEventStationModeConnected &event)
 {
   char macAdddress[20];
-  sprintf(macAdddress, "%02X:%02X:%02X:%02X:%02X:%02X", event.bssid[5], event.bssid[4], event.bssid[3], event.bssid[2], event.bssid[1], event.bssid[0]);
+  sprintf(macAdddress, "%02X:%02X:%02X:%02X:%02X:%02X", event.bssid[0], event.bssid[1], event.bssid[2], event.bssid[3], event.bssid[4], event.bssid[5]);
+  connectedAPMac = macAdddress;
+
   Serial.print(F("[WIFI]: You're connected to the AP. (MAC - "));
   Serial.print(macAdddress);
   Serial.println(")");
@@ -352,20 +360,116 @@ void onConnected(const WiFiEventStationModeConnected &event)
 
 void onDisconnect(const WiFiEventStationModeDisconnected &event)
 {
+  String reason;
+  switch (event.reason)
+  {
+  case WiFiDisconnectReason::WIFI_DISCONNECT_REASON_UNSPECIFIED:
+    reason = "UNSPECIFIED";
+    break;
+  case WiFiDisconnectReason::WIFI_DISCONNECT_REASON_AUTH_EXPIRE:
+    reason = "AUTH EXPIRE";
+    break;
+  case WiFiDisconnectReason::WIFI_DISCONNECT_REASON_AUTH_LEAVE:
+    reason = "AUTH LEAVE";
+    break;
+  case WiFiDisconnectReason::WIFI_DISCONNECT_REASON_ASSOC_EXPIRE:
+    reason = "ASSOC EXPIRE";
+    break;
+  case WiFiDisconnectReason::WIFI_DISCONNECT_REASON_ASSOC_TOOMANY:
+    reason = "ASSOC TOOMANY";
+    break;
+  case WiFiDisconnectReason::WIFI_DISCONNECT_REASON_NOT_AUTHED:
+    reason = "NOT AUTHED";
+    break;
+  case WiFiDisconnectReason::WIFI_DISCONNECT_REASON_NOT_ASSOCED:
+    reason = "NOT ASSOCED";
+    break;
+  case WiFiDisconnectReason::WIFI_DISCONNECT_REASON_ASSOC_LEAVE:
+    reason = "ASSOC LEAVE";
+    break;
+  case WiFiDisconnectReason::WIFI_DISCONNECT_REASON_ASSOC_NOT_AUTHED:
+    reason = "ASSOC NOT AUTHED";
+    break;
+  case WiFiDisconnectReason::WIFI_DISCONNECT_REASON_DISASSOC_PWRCAP_BAD:
+    reason = "DISASSOC PWRCAP BAD";
+    break;
+  case WiFiDisconnectReason::WIFI_DISCONNECT_REASON_DISASSOC_SUPCHAN_BAD:
+    reason = "DISASSOC SUPCHAN BAD";
+    break;
+  case WiFiDisconnectReason::WIFI_DISCONNECT_REASON_IE_INVALID:
+    reason = "IE INVALID";
+    break;
+  case WiFiDisconnectReason::WIFI_DISCONNECT_REASON_MIC_FAILURE:
+    reason = "MIC FAILURE";
+    break;
+  case WiFiDisconnectReason::WIFI_DISCONNECT_REASON_4WAY_HANDSHAKE_TIMEOUT:
+    reason = "4WAY HANDSHAKE TIMEOUT";
+    break;
+  case WiFiDisconnectReason::WIFI_DISCONNECT_REASON_GROUP_KEY_UPDATE_TIMEOUT:
+    reason = "GROUP KEY UPDATE TIMEOUT";
+    break;
+  case WiFiDisconnectReason::WIFI_DISCONNECT_REASON_IE_IN_4WAY_DIFFERS:
+    reason = "IE IN 4WAY DIFFERS";
+    break;
+  case WiFiDisconnectReason::WIFI_DISCONNECT_REASON_GROUP_CIPHER_INVALID:
+    reason = "GROUP CIPHER INVALID";
+    break;
+  case WiFiDisconnectReason::WIFI_DISCONNECT_REASON_PAIRWISE_CIPHER_INVALID:
+    reason = "PAIRWISE CIPHER INVALID";
+    break;
+  case WiFiDisconnectReason::WIFI_DISCONNECT_REASON_AKMP_INVALID:
+    reason = "AKMP INVALID";
+    break;
+  case WiFiDisconnectReason::WIFI_DISCONNECT_REASON_UNSUPP_RSN_IE_VERSION:
+    reason = "UNSUPP RSN IE VERSION";
+    break;
+  case WiFiDisconnectReason::WIFI_DISCONNECT_REASON_INVALID_RSN_IE_CAP:
+    reason = "INVALID RSN IE CAP";
+    break;
+  case WiFiDisconnectReason::WIFI_DISCONNECT_REASON_802_1X_AUTH_FAILED:
+    reason = "802 1X AUTH FAILED";
+    break;
+  case WiFiDisconnectReason::WIFI_DISCONNECT_REASON_CIPHER_SUITE_REJECTED:
+    reason = "CIPHER SUITE REJECTED";
+    break;
+  case WiFiDisconnectReason::WIFI_DISCONNECT_REASON_BEACON_TIMEOUT:
+    reason = "BEACON TIMEOUT";
+    break;
+  case WiFiDisconnectReason::WIFI_DISCONNECT_REASON_NO_AP_FOUND:
+    reason = "NO AP FOUND";
+    break;
+  case WiFiDisconnectReason::WIFI_DISCONNECT_REASON_AUTH_FAIL:
+    reason = "AUTH FAIL";
+    break;
+  case WiFiDisconnectReason::WIFI_DISCONNECT_REASON_ASSOC_FAIL:
+    reason = "ASSOC FAIL";
+    break;
+  case WiFiDisconnectReason::WIFI_DISCONNECT_REASON_HANDSHAKE_TIMEOUT:
+    reason = "HANDSHAKE TIMEOUT";
+    break;
+  default:
+    reason = "Unknown";
+    break;
+  }
+
   Serial.println("[WIFI]: Disconnected");
   Serial.print("[WIFI]: Reason: ");
-  Serial.println(event.reason);
+  Serial.println(reason);
   isConnected = 0;
 }
 
 void onGotIP(const WiFiEventStationModeGotIP &event)
 {
+  ipAddress = event.ip.toString();
+  subnet = event.mask.toString();
+  gateway = event.gw.toString();
+
   Serial.print("[WIFI]: IP Address : ");
-  Serial.println(event.ip);
+  Serial.println(ipAddress);
   Serial.print("[WIFI]: Subnet     : ");
-  Serial.println(event.mask);
+  Serial.println(subnet);
   Serial.print("[WIFI]: Gateway    : ");
-  Serial.println(event.gw);
+  Serial.println(gateway);
 
   isConnected = 2;
 }
@@ -569,6 +673,10 @@ void setupMQTT()
   Serial.print(F("[MQTT] Availability: "));
   Serial.println(MQTT_DEVICE_AVAILABILITY_STATE_TOPIC);
 
+  sprintf(MQTT_DEVICE_INFO_TOPIC, MQTT_DEVICE_INFO_TEMPLATE, ESP_CHIP_ID);
+  Serial.print(F("[MQTT] Info: "));
+  Serial.println(MQTT_DEVICE_INFO_TOPIC);
+
   sprintf(MQTT_DEVICE_COMMAND_TOPIC, MQTT_DEVICE_COMMAND_TEMPLATE, ESP_CHIP_ID);
   Serial.print(F("[MQTT] Command: "));
   Serial.println(MQTT_DEVICE_COMMAND_TOPIC);
@@ -660,8 +768,33 @@ void setupMQTT()
   mqttClient.setCallback(handleMQTTMessage);
 }
 
+void publishDeviceInfo()
+{
+  DynamicJsonDocument device(1024);
+
+  device["id"] = ESP_CHIP_ID;
+  device["name"] = DEVICE_FRIENDLY_NAME;
+  device["manufacturer"] = DEVICE_MANUFACTURER;
+  device["model"] = DEVICE_MODEL;
+  device["version"] = DEVICE_VERSION;
+  device["ip_address"] = ipAddress;
+  device["subnet"] = subnet;
+  device["gateway"] = gateway;
+  device["connected_ap_mac"] = connectedAPMac;
+
+  String output;
+  serializeJson(device, output);
+
+  char *payload = new char[output.length() + 1];
+  strcpy(payload, output.c_str());
+
+  publishToMQTT(MQTT_DEVICE_INFO_TOPIC, payload, true);
+}
+
 void publishAllState()
 {
+  publishDeviceInfo();
+
   // wifi signal strength
   previousWiFiSignalStrength = getWiFiSignalStrength();
   dtostrf(previousWiFiSignalStrength, 4, 2, MQTT_PAYLOAD);
@@ -825,12 +958,15 @@ void connectToMQTT()
         {
           Serial.println(F("[MQTT]: Connected"));
           systemCheckAndSet();
+          // publish all states for sensors
           publishAllState();
           boot = false;
         }
         else
         {
           Serial.println(F("[MQTT]: Reconnected"));
+          // publish device info
+          publishDeviceInfo();
         }
 
         // resubscribe to mqtt command topics
