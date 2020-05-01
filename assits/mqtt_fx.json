@@ -13,6 +13,10 @@
       "color": "#7A296B"
     },
     {
+      "name": "homeassistant/sensor/E449D3/availability/state",
+      "color": "#7A296B"
+    },
+    {
       "name": "homeassistant/switch/E449D3/siren/state",
       "color": "#2C4770"
     },

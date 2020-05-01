@@ -68,9 +68,13 @@ void handleMQTTMessage(char *topic, byte *payload, unsigned int length);
 // variables declaration
 bool boot = true;
 char MQTT_PAYLOAD[8] = {0};
-char MQTT_DEVICE_AVAILABILITY_STATE_TOPIC[sizeof(ESP_CHIP_ID) + sizeof(MQTT_DEVICE_AVAILABILITY_TEMPLATE) - 2] = {0};
 char MQTT_DEVICE_INFO_TOPIC[sizeof(ESP_CHIP_ID) + sizeof(MQTT_DEVICE_INFO_TEMPLATE) - 2] = {0};
 char MQTT_DEVICE_COMMAND_TOPIC[sizeof(ESP_CHIP_ID) + sizeof(MQTT_DEVICE_COMMAND_TEMPLATE) - 2] = {0};
+
+// availability sensor
+char MQTT_DEVICE_AVAILABILITY_BASE[sizeof(MQTT_SENSOR_TEMPLATE) + sizeof(ESP_CHIP_ID) + sizeof(DEVICE_AVAILABILITY_NAME) - 4] = {0};
+char MQTT_DEVICE_AVAILABILITY_STATE_TOPIC[sizeof(MQTT_STATE_TEMPLATE) + sizeof(MQTT_DEVICE_AVAILABILITY_BASE) - 2] = {0};
+char MQTT_DEVICE_AVAILABILITY_DISCOVERY_TOPIC[sizeof(MQTT_DISCOVERY_TEMPLATE) + sizeof(MQTT_DEVICE_AVAILABILITY_BASE) - 2] = {0};
 
 // wifi sensor
 char MQTT_WIFI_SIGNAL_STRENGTH_BASE[sizeof(MQTT_SENSOR_TEMPLATE) + sizeof(ESP_CHIP_ID) + sizeof(WIFI_SIGNAL_STRENGTH_SENSOR_NAME) - 4] = {0};
@@ -124,7 +128,7 @@ String stepperState = MQTT_PAYLOAD_CLOSE;
 String lastPublishedStepperState;
 
 // Initialize the SwartNinjaSMD object
-SwartNinjaSMD doorStepper(SwartNinjaSMDMode::TB6600_one, STEPPER_DIR_PIN, STEPPER_PUL_PIN, STEPPER_ENE_PIN);
+SwartNinjaSMD doorStepper(SwartNinjaSMDMode::TB6600_eight, STEPPER_DIR_PIN, STEPPER_PUL_PIN, STEPPER_ENE_PIN);
 
 ///////////////////////////////////////////////////////////////////////////
 //   SwartNinjaSensors
@@ -519,6 +523,16 @@ void hassAutoConfig()
   DynamicJsonDocument config(1024);
   Serial.println("hassAutoConfig - Start");
 
+  sprintf(unique_id, "%s_availability", ESP_CHIP_ID);
+  sprintf(name, DEVICE_NAME_TEMPLATE, unique_id);
+  config["uniq_id"] = unique_id;
+  config["name"] = name;
+  config["ic"] = "mdi:ninja";
+  config["stat_t"] = MQTT_DEVICE_AVAILABILITY_STATE_TOPIC; // state_topic
+  config["val_tpl"] = "{{ value | title }}"; // value_template
+  registerSensor(config, MQTT_DEVICE_AVAILABILITY_DISCOVERY_TOPIC);
+
+  config.clear();
   sprintf(unique_id, "%s_wifi_signal_strength", ESP_CHIP_ID);
   sprintf(name, DEVICE_NAME_TEMPLATE, unique_id);
   config["uniq_id"] = unique_id;
@@ -544,6 +558,7 @@ void hassAutoConfig()
   sprintf(name, DEVICE_NAME_TEMPLATE, unique_id);
   config["uniq_id"] = unique_id;
   config["name"] = name;
+  config["ic"] = "mdi:alarm-bell";
   config["~"] = MQTT_SIREN_BASE; //topic base
   config["stat_t"] = "~/state";  //state_topic
   config["cmd_t"] = "~/set";     //command_topic
@@ -629,6 +644,11 @@ bool registerSensor(DynamicJsonDocument doc, char *topic)
 
 void unregisterSensors()
 {
+  if (!publishToMQTT(MQTT_DEVICE_AVAILABILITY_DISCOVERY_TOPIC, ""))
+  {
+    Serial.println("Failed to unregister availability sensor");
+  }
+
   if (!publishToMQTT(MQTT_WIFI_SIGNAL_STRENGTH_DISCOVERY_TOPIC, ""))
   {
     Serial.println("Failed to unregister wifi sensor");
@@ -668,8 +688,13 @@ void setupMQTT()
   Serial.println("[MQTT] -------------------------------- MQTT TOPICS --------------------------------");
   Serial.println();
   Serial.println("[MQTT] --- Device");
+  sprintf(MQTT_DEVICE_AVAILABILITY_BASE, MQTT_SENSOR_TEMPLATE, ESP_CHIP_ID, DEVICE_AVAILABILITY_NAME);
 
-  sprintf(MQTT_DEVICE_AVAILABILITY_STATE_TOPIC, MQTT_DEVICE_AVAILABILITY_TEMPLATE, ESP_CHIP_ID);
+  sprintf(MQTT_DEVICE_AVAILABILITY_DISCOVERY_TOPIC, MQTT_DISCOVERY_TEMPLATE, MQTT_DEVICE_AVAILABILITY_BASE);
+  Serial.print(F("[MQTT] Config: "));
+  Serial.println(MQTT_DEVICE_AVAILABILITY_DISCOVERY_TOPIC);
+
+  sprintf(MQTT_DEVICE_AVAILABILITY_STATE_TOPIC, MQTT_STATE_TEMPLATE, MQTT_DEVICE_AVAILABILITY_BASE);
   Serial.print(F("[MQTT] Availability: "));
   Serial.println(MQTT_DEVICE_AVAILABILITY_STATE_TOPIC);
 
@@ -827,7 +852,8 @@ void systemCheckAndSet()
   currentPosition = newPosition;
   stepperState = (currentPosition == STEPPER_POSITION_CLOSED) ? MQTT_STATE_CLOSED : MQTT_STATE_OPEN;
 
-  doorLock.write((isClosed) ? LOCK_POSITION_CLOSED : LOCK_POSITION_OPEN);
+  doorLock.write(LOCK_POSITION_OPEN);
+  // doorLock.write((isClosed) ? LOCK_POSITION_CLOSED : LOCK_POSITION_OPEN);
   isLocked = (doorLock.read() != LOCK_POSITION_OPEN);
 }
 

@@ -6,6 +6,8 @@
 #define DEVICE_MANUFACTURER "SwartNinja"
 #define DEVICE_MODEL "LoLin NodeMCU V3"
 #define DEVICE_VERSION "1.0.0"
+#define DEVICE_AVAILABILITY_NAME "availability"
+
 
 ///////////////////////////////////////////////////////////////////////////
 //   WIFI
