@@ -299,7 +299,7 @@ void handleSwartNinjaSensorUpdate(char *value, int pin, const char *event)
   if (strcmp(event, SN_RSW_SENSOR_EVT) == 0)
   {
     // publish door open or closed
-    publishToMQTT(MQTT_DOOR_STATE_TOPIC, value);
+    publishToMQTT(MQTT_DOOR_STATE_TOPIC, value, true);
   }
 }
 
@@ -633,7 +633,7 @@ bool registerSensor(DynamicJsonDocument doc, char *topic)
   Serial.println(buffer);
   Serial.println("-----------------------------------------------");
 #else
-  bool result = publishToMQTT(topic, buffer);
+  bool result = publishToMQTT(topic, buffer, true);
 #endif
 
   // Cleanup
@@ -644,32 +644,32 @@ bool registerSensor(DynamicJsonDocument doc, char *topic)
 
 void unregisterSensors()
 {
-  if (!publishToMQTT(MQTT_DEVICE_AVAILABILITY_DISCOVERY_TOPIC, ""))
+  if (!publishToMQTT(MQTT_DEVICE_AVAILABILITY_DISCOVERY_TOPIC, "",true))
   {
     Serial.println("Failed to unregister availability sensor");
   }
 
-  if (!publishToMQTT(MQTT_WIFI_SIGNAL_STRENGTH_DISCOVERY_TOPIC, ""))
+  if (!publishToMQTT(MQTT_WIFI_SIGNAL_STRENGTH_DISCOVERY_TOPIC, "",true))
   {
     Serial.println("Failed to unregister wifi sensor");
   }
 
-  if (!publishToMQTT(MQTT_DOOR_DISCOVERY_TOPIC, ""))
+  if (!publishToMQTT(MQTT_DOOR_DISCOVERY_TOPIC, "",true))
   {
     Serial.println("Failed to unregister door sensor");
   }
 
-  if (!publishToMQTT(MQTT_SIREN_DISCOVERY_TOPIC, ""))
+  if (!publishToMQTT(MQTT_SIREN_DISCOVERY_TOPIC, "",true))
   {
     Serial.println("Failed to unregister siren");
   }
 
-  if (!publishToMQTT(MQTT_LOCK_DISCOVERY_TOPIC, ""))
+  if (!publishToMQTT(MQTT_LOCK_DISCOVERY_TOPIC, "",true))
   {
     Serial.println("Failed to unregister lock");
   }
 
-  if (!publishToMQTT(MQTT_COVER_DISCOVERY_TOPIC, ""))
+  if (!publishToMQTT(MQTT_COVER_DISCOVERY_TOPIC, "",true))
   {
     Serial.println("Failed to unregister cover");
   }
@@ -853,7 +853,6 @@ void systemCheckAndSet()
   stepperState = (currentPosition == STEPPER_POSITION_CLOSED) ? MQTT_STATE_CLOSED : MQTT_STATE_OPEN;
 
   doorLock.write(LOCK_POSITION_OPEN);
-  // doorLock.write((isClosed) ? LOCK_POSITION_CLOSED : LOCK_POSITION_OPEN);
   isLocked = (doorLock.read() != LOCK_POSITION_OPEN);
 }
 
