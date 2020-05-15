@@ -982,6 +982,7 @@ void connectToMQTT()
         if (boot)
         {
           Serial.println(F("[MQTT]: Connected"));
+          hassAutoConfig();
           systemCheckAndSet();
           // publish all states for sensors
           publishAllState();
