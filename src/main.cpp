@@ -35,6 +35,7 @@ void loopWiFiSensor(void);
 int getWiFiSignalStrength(void);
 
 // variables declaration
+char buffer [sizeof(int)*8+1];
 int previousWiFiSignalStrength = -1;
 unsigned long previousMillis = 0;
 int reqConnect = 0;
@@ -491,7 +492,7 @@ void loopWiFiSensor(void)
     if (isnan(previousWiFiSignalStrength) || currentWiFiSignalStrength <= previousWiFiSignalStrength - WIFI_SIGNAL_STRENGTH_OFFSET_VALUE || currentWiFiSignalStrength >= previousWiFiSignalStrength + WIFI_SIGNAL_STRENGTH_OFFSET_VALUE)
     {
       previousWiFiSignalStrength = currentWiFiSignalStrength;
-      dtostrf(currentWiFiSignalStrength, 4, 2, MQTT_PAYLOAD);
+      itoa(currentWiFiSignalStrength, MQTT_PAYLOAD, 10);
       publishToMQTT(MQTT_WIFI_SIGNAL_STRENGTH_STATE_TOPIC, MQTT_PAYLOAD);
     }
   }
@@ -502,14 +503,16 @@ void loopWiFiSensor(void)
  */
 int getWiFiSignalStrength(void)
 {
-  if (WiFi.status() != WL_CONNECTED)
-    return -1;
-  int dBm = WiFi.RSSI();
-  if (dBm <= -100)
-    return 0;
-  if (dBm >= -50)
-    return 100;
-  return 2 * (dBm + 100);
+  return WiFi.RSSI();
+
+  // if (WiFi.status() != WL_CONNECTED)
+  //   return -1;
+  // int dBm = WiFi.RSSI();
+  // if (dBm <= -100)
+  //   return 0;
+  // if (dBm >= -50)
+  //   return 100;
+  // return 2 * (dBm + 100);
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -524,9 +527,8 @@ void hassAutoConfig()
   Serial.println("hassAutoConfig - Start");
 
   sprintf(unique_id, "%s_availability", ESP_CHIP_ID);
-  sprintf(name, DEVICE_NAME_TEMPLATE, unique_id);
   config["uniq_id"] = unique_id;
-  config["name"] = name;
+  config["name"] = "Office Door System Status";
   config["ic"] = "mdi:ninja";
   config["stat_t"] = MQTT_DEVICE_AVAILABILITY_STATE_TOPIC; // state_topic
   config["val_tpl"] = "{{ value | title }}"; // value_template
@@ -534,19 +536,18 @@ void hassAutoConfig()
 
   config.clear();
   sprintf(unique_id, "%s_wifi_signal_strength", ESP_CHIP_ID);
-  sprintf(name, DEVICE_NAME_TEMPLATE, unique_id);
   config["uniq_id"] = unique_id;
-  config["name"] = name;
+  config["name"] = "Office Door System WiFi";
+  config["ic"] = "mdi:wifi";
   config["dev_cla"] = "signal_strength";                    // device_class
-  config["unit_of_meas"] = "%";                             // unit_of_measurement
+  config["unit_of_meas"] = "dB";                            // unit_of_measurement
   config["stat_t"] = MQTT_WIFI_SIGNAL_STRENGTH_STATE_TOPIC; // state_topic
   registerSensor(config, MQTT_WIFI_SIGNAL_STRENGTH_DISCOVERY_TOPIC);
 
   config.clear();
   sprintf(unique_id, "%s_door", ESP_CHIP_ID);
-  sprintf(name, DEVICE_NAME_TEMPLATE, unique_id);
   config["uniq_id"] = unique_id;
-  config["name"] = name;
+  config["name"] = "Office Door System Door";
   config["dev_cla"] = "door";               //device_class
   config["stat_t"] = MQTT_DOOR_STATE_TOPIC; //state_topic
   config["pl_off"] = MQTT_PAYLOAD_OFF;      //payload_off
@@ -555,9 +556,8 @@ void hassAutoConfig()
 
   config.clear();
   sprintf(unique_id, "%s_siren", ESP_CHIP_ID);
-  sprintf(name, DEVICE_NAME_TEMPLATE, unique_id);
   config["uniq_id"] = unique_id;
-  config["name"] = name;
+  config["name"] = "Office Door System Siren";
   config["ic"] = "mdi:alarm-bell";
   config["~"] = MQTT_SIREN_BASE; //topic base
   config["stat_t"] = "~/state";  //state_topic
@@ -566,9 +566,8 @@ void hassAutoConfig()
 
   config.clear();
   sprintf(unique_id, "%s_lock", ESP_CHIP_ID);
-  sprintf(name, DEVICE_NAME_TEMPLATE, unique_id);
   config["uniq_id"] = unique_id;
-  config["name"] = name;
+  config["name"] = "Office Door System Lock";
   config["~"] = MQTT_LOCK_BASE;                  //topic base
   config["stat_t"] = "~/state";                  //state_topic
   config["stat_locked"] = MQTT_STATE_LOCKED;     //state_locked
@@ -580,9 +579,8 @@ void hassAutoConfig()
 
   config.clear();
   sprintf(unique_id, "%s_cover", ESP_CHIP_ID);
-  sprintf(name, DEVICE_NAME_TEMPLATE, unique_id);
   config["uniq_id"] = unique_id;
-  config["name"] = name;
+  config["name"] = "Office Door System Cover";
   config["dev_cla"] = "door";                   //device_class
   config["~"] = MQTT_COVER_BASE;                //topic base
   config["stat_t"] = "~/state";                 //state_topic
@@ -822,7 +820,7 @@ void publishAllState()
 
   // wifi signal strength
   previousWiFiSignalStrength = getWiFiSignalStrength();
-  dtostrf(previousWiFiSignalStrength, 4, 2, MQTT_PAYLOAD);
+  itoa(previousWiFiSignalStrength, MQTT_PAYLOAD, 10);
   publishToMQTT(MQTT_WIFI_SIGNAL_STRENGTH_STATE_TOPIC, MQTT_PAYLOAD);
 
   // siren
@@ -884,7 +882,7 @@ void handleMQTTMessage(char *topic, byte *payload, unsigned int length)
   {
     if (strPayload.equalsIgnoreCase(MQTT_CMD_RESET))
     {
-      Serial.println("Restarting device");
+      Serial.println("Reset device");
       systemCheckAndSet();
       publishAllState();
     }
@@ -960,6 +958,14 @@ void handleMQTTMessage(char *topic, byte *payload, unsigned int length)
       publishToMQTT(MQTT_SIREN_STATE_TOPIC, siren.getState(), true);
     }
   }
+  else if (strTopic.equals(HOME_ASSISTANT_LWT_TOPIC))
+  {
+    if (strPayload.equalsIgnoreCase(MQTT_PAYLOAD_AVAILABLE))
+    {
+      systemCheckAndSet();
+      publishAllState();
+    }
+  }
 }
 
 /*
@@ -982,8 +988,8 @@ void connectToMQTT()
         if (boot)
         {
           Serial.println(F("[MQTT]: Connected"));
-          hassAutoConfig();
           systemCheckAndSet();
+          hassAutoConfig();
           // publish all states for sensors
           publishAllState();
           boot = false;
@@ -1001,6 +1007,7 @@ void connectToMQTT()
         subscribeToMQTT(MQTT_LOCK_COMMAND_TOPIC);
         subscribeToMQTT(MQTT_COVER_COMMAND_TOPIC);
         subscribeToMQTT(MQTT_COVER_POSITION_COMMAND_TOPIC);
+        subscribeToMQTT(HOME_ASSISTANT_LWT_TOPIC);
       }
       else
       {

@@ -2,7 +2,7 @@
 #define _USER_CONFIG_H_
 
 #define DEVICE_NAME_TEMPLATE "office_door_system_%s"
-#define DEVICE_FRIENDLY_NAME "Office: Door System"
+#define DEVICE_FRIENDLY_NAME "Office Door System"
 #define DEVICE_MANUFACTURER "SwartNinja"
 #define DEVICE_MODEL "LoLin NodeMCU V3"
 #define DEVICE_VERSION "1.0.0"
@@ -26,6 +26,8 @@
 #define MQTT_USERNAME "mqtt_user_name"
 #define MQTT_PASSWORD "mqtt_password"
 #define MQTT_CHECKIN_INTERVAL 60000
+
+#define HOME_ASSISTANT_LWT_TOPIC   "homeassistant/status"  // home Assistant Birth and Last Will Topic (default = homeassistant/status)
 
 #define MQTT_DEVICE_AVAILABILITY_TEMPLATE "homeassistant/%s/state" // MQTT availability: online/offline
 #define MQTT_DEVICE_INFO_TEMPLATE "homeassistant/%s/info"
