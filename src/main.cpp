@@ -20,7 +20,6 @@
 ///////////////////////////////////////////////////////////////////////////
 void systemCheckAndSet();
 char ESP_CHIP_ID[7] = {0};
-char OTA_HOSTNAME[sizeof(ESP_CHIP_ID) + sizeof(OTA_HOSTNAME_TEMPLATE) - 2] = {0};
 
 ///////////////////////////////////////////////////////////////////////////
 //   WiFi
@@ -32,11 +31,10 @@ void onConnected(const WiFiEventStationModeConnected &event);
 void onDisconnect(const WiFiEventStationModeDisconnected &event);
 void onGotIP(const WiFiEventStationModeGotIP &event);
 void loopWiFiSensor(void);
-int getWiFiSignalStrength(void);
 
 // variables declaration
 char buffer [sizeof(int)*8+1];
-int previousWiFiSignalStrength = -1;
+int previousWiFiSignalStrength = 0;
 unsigned long previousMillis = 0;
 int reqConnect = 0;
 int isConnected = 0;
@@ -69,38 +67,43 @@ void handleMQTTMessage(char *topic, byte *payload, unsigned int length);
 // variables declaration
 bool boot = true;
 char MQTT_PAYLOAD[8] = {0};
-char MQTT_DEVICE_INFO_TOPIC[sizeof(ESP_CHIP_ID) + sizeof(MQTT_DEVICE_INFO_TEMPLATE) - 2] = {0};
-char MQTT_DEVICE_COMMAND_TOPIC[sizeof(ESP_CHIP_ID) + sizeof(MQTT_DEVICE_COMMAND_TEMPLATE) - 2] = {0};
+char MQTT_DEVICE_INFO_TOPIC[sizeof(DEVICE_NAME) + sizeof(MQTT_DEVICE_INFO_TEMPLATE) - 2] = {0};
+char MQTT_DEVICE_COMMAND_TOPIC[sizeof(DEVICE_NAME) + sizeof(MQTT_DEVICE_COMMAND_TEMPLATE) - 2] = {0};
 
-// availability sensor
-char MQTT_DEVICE_AVAILABILITY_BASE[sizeof(MQTT_SENSOR_TEMPLATE) + sizeof(ESP_CHIP_ID) + sizeof(DEVICE_AVAILABILITY_NAME) - 4] = {0};
-char MQTT_DEVICE_AVAILABILITY_STATE_TOPIC[sizeof(MQTT_STATE_TEMPLATE) + sizeof(MQTT_DEVICE_AVAILABILITY_BASE) - 2] = {0};
-char MQTT_DEVICE_AVAILABILITY_DISCOVERY_TOPIC[sizeof(MQTT_DISCOVERY_TEMPLATE) + sizeof(MQTT_DEVICE_AVAILABILITY_BASE) - 2] = {0};
+// status
+char MQTT_DEVICE_STATUS_BASE[sizeof(MQTT_BINARY_SENSOR_TEMPLATE) + sizeof(DEVICE_NAME) + sizeof(DEVICE_STATUS) - 4] = {0};
+char MQTT_DEVICE_STATUS_STATE_TOPIC[sizeof(MQTT_STATE_TEMPLATE) + sizeof(MQTT_DEVICE_STATUS_BASE) - 2] = {0};
+char MQTT_DEVICE_STATUS_DISCOVERY_TOPIC[sizeof(MQTT_DISCOVERY_TEMPLATE) + sizeof(MQTT_DEVICE_STATUS_BASE) - 2] = {0};
+
+// reset
+char MQTT_DEVICE_RESET_BASE[sizeof(MQTT_SWITCH_TEMPLATE) + sizeof(DEVICE_NAME) + sizeof(MQTT_CMD_RESET) - 4] = {0};
+char MQTT_DEVICE_RESET_STATE_TOPIC[sizeof(MQTT_STATE_TEMPLATE) + sizeof(MQTT_DEVICE_RESET_BASE) - 2] = {0};
+char MQTT_DEVICE_RESET_DISCOVERY_TOPIC[sizeof(MQTT_DISCOVERY_TEMPLATE) + sizeof(MQTT_DEVICE_RESET_BASE) - 2] = {0};
 
 // wifi sensor
-char MQTT_WIFI_SIGNAL_STRENGTH_BASE[sizeof(MQTT_SENSOR_TEMPLATE) + sizeof(ESP_CHIP_ID) + sizeof(WIFI_SIGNAL_STRENGTH_SENSOR_NAME) - 4] = {0};
+char MQTT_WIFI_SIGNAL_STRENGTH_BASE[sizeof(MQTT_SENSOR_TEMPLATE) + sizeof(DEVICE_NAME) + sizeof(WIFI_SIGNAL_STRENGTH_SENSOR_NAME) - 4] = {0};
 char MQTT_WIFI_SIGNAL_STRENGTH_STATE_TOPIC[sizeof(MQTT_STATE_TEMPLATE) + sizeof(MQTT_WIFI_SIGNAL_STRENGTH_BASE) - 2] = {0};
 char MQTT_WIFI_SIGNAL_STRENGTH_DISCOVERY_TOPIC[sizeof(MQTT_DISCOVERY_TEMPLATE) + sizeof(MQTT_WIFI_SIGNAL_STRENGTH_BASE) - 2] = {0};
 
 // siren
-char MQTT_SIREN_BASE[sizeof(MQTT_SWITCH_TEMPLATE) + sizeof(ESP_CHIP_ID) + sizeof(SIREN_NAME) - 4] = {0};
+char MQTT_SIREN_BASE[sizeof(MQTT_SWITCH_TEMPLATE) + sizeof(DEVICE_NAME) + sizeof(SIREN_NAME) - 4] = {0};
 char MQTT_SIREN_STATE_TOPIC[sizeof(MQTT_STATE_TEMPLATE) + sizeof(MQTT_SIREN_BASE) - 2] = {0};
 char MQTT_SIREN_COMMAND_TOPIC[sizeof(MQTT_COMMAND_TEMPLATE) + sizeof(MQTT_SIREN_BASE) - 2] = {0};
 char MQTT_SIREN_DISCOVERY_TOPIC[sizeof(MQTT_DISCOVERY_TEMPLATE) + sizeof(MQTT_SIREN_BASE) - 2] = {0};
 
 // door sensor
-char MQTT_DOOR_BASE[sizeof(MQTT_BINARY_SENSOR_TEMPLATE) + sizeof(ESP_CHIP_ID) + sizeof(DOOR_SENSOR_NAME) - 4] = {0};
+char MQTT_DOOR_BASE[sizeof(MQTT_BINARY_SENSOR_TEMPLATE) + sizeof(DEVICE_NAME) + sizeof(DOOR_SENSOR_NAME) - 4] = {0};
 char MQTT_DOOR_STATE_TOPIC[sizeof(MQTT_STATE_TEMPLATE) + sizeof(MQTT_DOOR_BASE) - 2] = {0};
 char MQTT_DOOR_DISCOVERY_TOPIC[sizeof(MQTT_DISCOVERY_TEMPLATE) + sizeof(MQTT_DOOR_BASE) - 2] = {0};
 
 // lock
-char MQTT_LOCK_BASE[sizeof(MQTT_LOCK_TEMPLATE) + sizeof(ESP_CHIP_ID) + sizeof(LOCK_NAME) - 4] = {0};
+char MQTT_LOCK_BASE[sizeof(MQTT_LOCK_TEMPLATE) + sizeof(DEVICE_NAME) + sizeof(LOCK_NAME) - 4] = {0};
 char MQTT_LOCK_STATE_TOPIC[sizeof(MQTT_STATE_TEMPLATE) + sizeof(MQTT_LOCK_BASE) - 2] = {0};
 char MQTT_LOCK_COMMAND_TOPIC[sizeof(MQTT_COMMAND_TEMPLATE) + sizeof(MQTT_LOCK_BASE) - 2] = {0};
 char MQTT_LOCK_DISCOVERY_TOPIC[sizeof(MQTT_DISCOVERY_TEMPLATE) + sizeof(MQTT_LOCK_BASE) - 2] = {0};
 
 // cover
-char MQTT_COVER_BASE[sizeof(MQTT_COVER_TEMPLATE) + sizeof(ESP_CHIP_ID) + sizeof(STEPPER_NAME) - 4] = {0};
+char MQTT_COVER_BASE[sizeof(MQTT_COVER_TEMPLATE) + sizeof(DEVICE_NAME) + sizeof(STEPPER_NAME) - 4] = {0};
 char MQTT_COVER_STATE_TOPIC[sizeof(MQTT_STATE_TEMPLATE) + sizeof(MQTT_COVER_BASE) - 2] = {0};
 char MQTT_COVER_COMMAND_TOPIC[sizeof(MQTT_COMMAND_TEMPLATE) + sizeof(MQTT_COVER_BASE) - 2] = {0};
 char MQTT_COVER_DISCOVERY_TOPIC[sizeof(MQTT_DISCOVERY_TEMPLATE) + sizeof(MQTT_COVER_BASE) - 2] = {0};
@@ -173,7 +176,6 @@ void setup()
   setupMQTT();
 
   // Over the air
-  sprintf(OTA_HOSTNAME, OTA_HOSTNAME_TEMPLATE, ESP_CHIP_ID);
   ArduinoOTA.setHostname(OTA_HOSTNAME);
   ArduinoOTA.begin();
 
@@ -485,10 +487,10 @@ void onGotIP(const WiFiEventStationModeGotIP &event)
 void loopWiFiSensor(void)
 {
   static unsigned long lastWiFiQualityMeasure = 0;
-  if (lastWiFiQualityMeasure + WIFI_SIGNAL_STRENGTH_INTERVAL <= millis() || previousWiFiSignalStrength == -1)
+  if (lastWiFiQualityMeasure + WIFI_SIGNAL_STRENGTH_INTERVAL <= millis() || previousWiFiSignalStrength == 0)
   {
     lastWiFiQualityMeasure = millis();
-    int currentWiFiSignalStrength = getWiFiSignalStrength();
+    int currentWiFiSignalStrength = WiFi.RSSI();
     if (isnan(previousWiFiSignalStrength) || currentWiFiSignalStrength <= previousWiFiSignalStrength - WIFI_SIGNAL_STRENGTH_OFFSET_VALUE || currentWiFiSignalStrength >= previousWiFiSignalStrength + WIFI_SIGNAL_STRENGTH_OFFSET_VALUE)
     {
       previousWiFiSignalStrength = currentWiFiSignalStrength;
@@ -498,23 +500,6 @@ void loopWiFiSensor(void)
   }
 }
 
-/*
- * Helper function to get the current WiFi signal strength
- */
-int getWiFiSignalStrength(void)
-{
-  return WiFi.RSSI();
-
-  // if (WiFi.status() != WL_CONNECTED)
-  //   return -1;
-  // int dBm = WiFi.RSSI();
-  // if (dBm <= -100)
-  //   return 0;
-  // if (dBm >= -50)
-  //   return 100;
-  // return 2 * (dBm + 100);
-}
-
 ///////////////////////////////////////////////////////////////////////////
 //   Home Assistant
 ///////////////////////////////////////////////////////////////////////////
@@ -522,20 +507,35 @@ int getWiFiSignalStrength(void)
 void hassAutoConfig()
 {
   char unique_id[40];
-  char name[80];
   DynamicJsonDocument config(1024);
   Serial.println("hassAutoConfig - Start");
 
-  sprintf(unique_id, "%s_availability", ESP_CHIP_ID);
+  config.clear();
+  sprintf(unique_id, "%s_reset", DEVICE_NAME);
   config["uniq_id"] = unique_id;
-  config["name"] = "Office Door System Status";
-  config["ic"] = "mdi:ninja";
-  config["stat_t"] = MQTT_DEVICE_AVAILABILITY_STATE_TOPIC; // state_topic
-  config["val_tpl"] = "{{ value | title }}"; // value_template
-  registerSensor(config, MQTT_DEVICE_AVAILABILITY_DISCOVERY_TOPIC);
+  config["name"] = "Office Door System Reset";
+  config["ic"] = "mdi:restart";
+  config["cmd_t"] = MQTT_DEVICE_COMMAND_TOPIC;       //command_topic
+  config["stat_t"] = MQTT_DEVICE_RESET_STATE_TOPIC;  //state_topic
+  config["stat_on"] = MQTT_PAYLOAD_ON;               //payload_off
+  config["stat_off"] = MQTT_PAYLOAD_ON;              //payload_off
+  config["pl_off"] = MQTT_PAYLOAD_OFF;               //payload_off
+  config["pl_on"] = MQTT_CMD_RESET;                  //payload_on
+  registerSensor(config, MQTT_DEVICE_RESET_DISCOVERY_TOPIC);
 
   config.clear();
-  sprintf(unique_id, "%s_wifi_signal_strength", ESP_CHIP_ID);
+  sprintf(unique_id, "%s_status", DEVICE_NAME);
+  config["uniq_id"] = unique_id;
+  config["name"] = "Office Door System Status";
+  config["dev_cla"] = "connectivity";                 //device_class
+  config["stat_t"] = MQTT_DEVICE_STATUS_STATE_TOPIC;  //state_topic
+  config["json_attr_t"] = MQTT_DEVICE_INFO_TOPIC;     //json_attributes_topic
+  config["pl_off"] = MQTT_PAYLOAD_NOT_AVAILABLE;      //payload_off
+  config["pl_on"] = MQTT_PAYLOAD_AVAILABLE;           //payload_on
+  registerSensor(config, MQTT_DEVICE_STATUS_DISCOVERY_TOPIC);
+
+  config.clear();
+  sprintf(unique_id, "%s_wifi_signal_strength", DEVICE_NAME);
   config["uniq_id"] = unique_id;
   config["name"] = "Office Door System WiFi";
   config["ic"] = "mdi:wifi";
@@ -545,7 +545,7 @@ void hassAutoConfig()
   registerSensor(config, MQTT_WIFI_SIGNAL_STRENGTH_DISCOVERY_TOPIC);
 
   config.clear();
-  sprintf(unique_id, "%s_door", ESP_CHIP_ID);
+  sprintf(unique_id, "%s_door", DEVICE_NAME);
   config["uniq_id"] = unique_id;
   config["name"] = "Office Door System Door";
   config["dev_cla"] = "door";               //device_class
@@ -555,7 +555,7 @@ void hassAutoConfig()
   registerSensor(config, MQTT_DOOR_DISCOVERY_TOPIC);
 
   config.clear();
-  sprintf(unique_id, "%s_siren", ESP_CHIP_ID);
+  sprintf(unique_id, "%s_siren", DEVICE_NAME);
   config["uniq_id"] = unique_id;
   config["name"] = "Office Door System Siren";
   config["ic"] = "mdi:alarm-bell";
@@ -565,7 +565,7 @@ void hassAutoConfig()
   registerSensor(config, MQTT_SIREN_DISCOVERY_TOPIC);
 
   config.clear();
-  sprintf(unique_id, "%s_lock", ESP_CHIP_ID);
+  sprintf(unique_id, "%s_lock", DEVICE_NAME);
   config["uniq_id"] = unique_id;
   config["name"] = "Office Door System Lock";
   config["~"] = MQTT_LOCK_BASE;                  //topic base
@@ -578,7 +578,7 @@ void hassAutoConfig()
   registerSensor(config, MQTT_LOCK_DISCOVERY_TOPIC);
 
   config.clear();
-  sprintf(unique_id, "%s_cover", ESP_CHIP_ID);
+  sprintf(unique_id, "%s_cover", DEVICE_NAME);
   config["uniq_id"] = unique_id;
   config["name"] = "Office Door System Cover";
   config["dev_cla"] = "door";                   //device_class
@@ -604,13 +604,14 @@ void hassAutoConfig()
  */
 bool registerSensor(DynamicJsonDocument doc, char *topic)
 {
-  doc["avty_t"] = MQTT_DEVICE_AVAILABILITY_STATE_TOPIC; // availability_topic
+  doc["avty_t"] = MQTT_DEVICE_STATUS_STATE_TOPIC; // availability_topic
   doc["pl_avail"] = MQTT_PAYLOAD_AVAILABLE;             // payload_available
   doc["pl_not_avail"] = MQTT_PAYLOAD_NOT_AVAILABLE;     // payload_not_available
 
   JsonObject device = doc.createNestedObject("dev");       // device
   JsonArray identifiers = device.createNestedArray("ids"); // identifiers
   identifiers.add(ESP_CHIP_ID);
+  identifiers.add(DEVICE_NAME);
   device["name"] = DEVICE_FRIENDLY_NAME; // name
   device["mf"] = DEVICE_MANUFACTURER;    // manufacturer
   device["mdl"] = DEVICE_MODEL;          // model
@@ -642,11 +643,14 @@ bool registerSensor(DynamicJsonDocument doc, char *topic)
 
 void unregisterSensors()
 {
-  if (!publishToMQTT(MQTT_DEVICE_AVAILABILITY_DISCOVERY_TOPIC, "",true))
+  if (!publishToMQTT(MQTT_DEVICE_STATUS_DISCOVERY_TOPIC, "",true))
   {
     Serial.println("Failed to unregister availability sensor");
   }
-
+  if (!publishToMQTT(MQTT_DEVICE_RESET_DISCOVERY_TOPIC, "",true))
+  {
+    Serial.println("Failed to unregister cover");
+  }
   if (!publishToMQTT(MQTT_WIFI_SIGNAL_STRENGTH_DISCOVERY_TOPIC, "",true))
   {
     Serial.println("Failed to unregister wifi sensor");
@@ -686,27 +690,39 @@ void setupMQTT()
   Serial.println("[MQTT] -------------------------------- MQTT TOPICS --------------------------------");
   Serial.println();
   Serial.println("[MQTT] --- Device");
-  sprintf(MQTT_DEVICE_AVAILABILITY_BASE, MQTT_SENSOR_TEMPLATE, ESP_CHIP_ID, DEVICE_AVAILABILITY_NAME);
+  sprintf(MQTT_DEVICE_STATUS_BASE, MQTT_BINARY_SENSOR_TEMPLATE, DEVICE_NAME, DEVICE_STATUS);
 
-  sprintf(MQTT_DEVICE_AVAILABILITY_DISCOVERY_TOPIC, MQTT_DISCOVERY_TEMPLATE, MQTT_DEVICE_AVAILABILITY_BASE);
+  sprintf(MQTT_DEVICE_STATUS_DISCOVERY_TOPIC, MQTT_DISCOVERY_TEMPLATE, MQTT_DEVICE_STATUS_BASE);
   Serial.print(F("[MQTT] Config: "));
-  Serial.println(MQTT_DEVICE_AVAILABILITY_DISCOVERY_TOPIC);
+  Serial.println(MQTT_DEVICE_STATUS_DISCOVERY_TOPIC);
 
-  sprintf(MQTT_DEVICE_AVAILABILITY_STATE_TOPIC, MQTT_STATE_TEMPLATE, MQTT_DEVICE_AVAILABILITY_BASE);
-  Serial.print(F("[MQTT] Availability: "));
-  Serial.println(MQTT_DEVICE_AVAILABILITY_STATE_TOPIC);
+  sprintf(MQTT_DEVICE_STATUS_STATE_TOPIC, MQTT_STATE_TEMPLATE, MQTT_DEVICE_STATUS_BASE);
+  Serial.print(F("[MQTT] Status: "));
+  Serial.println(MQTT_DEVICE_STATUS_STATE_TOPIC);
 
-  sprintf(MQTT_DEVICE_INFO_TOPIC, MQTT_DEVICE_INFO_TEMPLATE, ESP_CHIP_ID);
+  sprintf(MQTT_DEVICE_INFO_TOPIC, MQTT_DEVICE_INFO_TEMPLATE, DEVICE_NAME);
   Serial.print(F("[MQTT] Info: "));
   Serial.println(MQTT_DEVICE_INFO_TOPIC);
 
-  sprintf(MQTT_DEVICE_COMMAND_TOPIC, MQTT_DEVICE_COMMAND_TEMPLATE, ESP_CHIP_ID);
+  sprintf(MQTT_DEVICE_COMMAND_TOPIC, MQTT_DEVICE_COMMAND_TEMPLATE, DEVICE_NAME);
   Serial.print(F("[MQTT] Command: "));
   Serial.println(MQTT_DEVICE_COMMAND_TOPIC);
 
   Serial.println();
+  Serial.println("[MQTT] --- Reset");
+  sprintf(MQTT_DEVICE_RESET_BASE, MQTT_SWITCH_TEMPLATE, DEVICE_NAME, MQTT_CMD_RESET);
+
+  sprintf(MQTT_DEVICE_RESET_DISCOVERY_TOPIC, MQTT_DISCOVERY_TEMPLATE, MQTT_DEVICE_RESET_BASE);
+  Serial.print(F("[MQTT] Config: "));
+  Serial.println(MQTT_SIREN_DISCOVERY_TOPIC);
+
+  sprintf(MQTT_DEVICE_RESET_STATE_TOPIC, MQTT_STATE_TEMPLATE, MQTT_DEVICE_RESET_BASE);
+  Serial.print(F("[MQTT] State: "));
+  Serial.println(MQTT_DEVICE_RESET_STATE_TOPIC);
+
+  Serial.println();
   Serial.println("[MQTT] --- WiFi Signal Strength");
-  sprintf(MQTT_WIFI_SIGNAL_STRENGTH_BASE, MQTT_SENSOR_TEMPLATE, ESP_CHIP_ID, WIFI_SIGNAL_STRENGTH_SENSOR_NAME);
+  sprintf(MQTT_WIFI_SIGNAL_STRENGTH_BASE, MQTT_SENSOR_TEMPLATE, DEVICE_NAME, WIFI_SIGNAL_STRENGTH_SENSOR_NAME);
 
   sprintf(MQTT_WIFI_SIGNAL_STRENGTH_DISCOVERY_TOPIC, MQTT_DISCOVERY_TEMPLATE, MQTT_WIFI_SIGNAL_STRENGTH_BASE);
   Serial.print(F("[MQTT] Config: "));
@@ -718,7 +734,7 @@ void setupMQTT()
 
   Serial.println();
   Serial.println("[MQTT] --- Door");
-  sprintf(MQTT_DOOR_BASE, MQTT_BINARY_SENSOR_TEMPLATE, ESP_CHIP_ID, DOOR_SENSOR_NAME);
+  sprintf(MQTT_DOOR_BASE, MQTT_BINARY_SENSOR_TEMPLATE, DEVICE_NAME, DOOR_SENSOR_NAME);
 
   sprintf(MQTT_DOOR_DISCOVERY_TOPIC, MQTT_DISCOVERY_TEMPLATE, MQTT_DOOR_BASE);
   Serial.print(F("[MQTT] Config: "));
@@ -730,7 +746,7 @@ void setupMQTT()
 
   Serial.println();
   Serial.println("[MQTT] --- Siren");
-  sprintf(MQTT_SIREN_BASE, MQTT_SWITCH_TEMPLATE, ESP_CHIP_ID, SIREN_NAME);
+  sprintf(MQTT_SIREN_BASE, MQTT_SWITCH_TEMPLATE, DEVICE_NAME, SIREN_NAME);
 
   sprintf(MQTT_SIREN_DISCOVERY_TOPIC, MQTT_DISCOVERY_TEMPLATE, MQTT_SIREN_BASE);
   Serial.print(F("[MQTT] Config: "));
@@ -746,7 +762,7 @@ void setupMQTT()
 
   Serial.println();
   Serial.println("[MQTT] --- Lock");
-  sprintf(MQTT_LOCK_BASE, MQTT_LOCK_TEMPLATE, ESP_CHIP_ID, LOCK_NAME);
+  sprintf(MQTT_LOCK_BASE, MQTT_LOCK_TEMPLATE, DEVICE_NAME, LOCK_NAME);
 
   sprintf(MQTT_LOCK_DISCOVERY_TOPIC, MQTT_DISCOVERY_TEMPLATE, MQTT_LOCK_BASE);
   Serial.print(F("[MQTT] Config: "));
@@ -762,7 +778,7 @@ void setupMQTT()
 
   Serial.println();
   Serial.println("[MQTT] --- Cover");
-  sprintf(MQTT_COVER_BASE, MQTT_COVER_TEMPLATE, ESP_CHIP_ID, STEPPER_NAME);
+  sprintf(MQTT_COVER_BASE, MQTT_COVER_TEMPLATE, DEVICE_NAME, STEPPER_NAME);
   sprintf(MQTT_COVER_POSITION_BASE, MQTT_JOIN_TEMPLATE, MQTT_COVER_BASE, STEPPER_POSITION_NAME);
 
   sprintf(MQTT_COVER_DISCOVERY_TOPIC, MQTT_DISCOVERY_TEMPLATE, MQTT_COVER_BASE);
@@ -819,9 +835,14 @@ void publishAllState()
   publishDeviceInfo();
 
   // wifi signal strength
-  previousWiFiSignalStrength = getWiFiSignalStrength();
+  previousWiFiSignalStrength = WiFi.RSSI();
   itoa(previousWiFiSignalStrength, MQTT_PAYLOAD, 10);
   publishToMQTT(MQTT_WIFI_SIGNAL_STRENGTH_STATE_TOPIC, MQTT_PAYLOAD);
+
+  // status
+  publishToMQTT(MQTT_DEVICE_STATUS_STATE_TOPIC, MQTT_PAYLOAD_AVAILABLE, true);
+  // reset
+  publishToMQTT(MQTT_DEVICE_RESET_STATE_TOPIC, MQTT_PAYLOAD_OFF, true);
 
   // siren
   publishToMQTT(MQTT_SIREN_STATE_TOPIC, siren.getState(), true);
@@ -860,7 +881,7 @@ void checkInMQTT()
   if (lastCheckIn + MQTT_CHECKIN_INTERVAL <= millis())
   {
     lastCheckIn = millis();
-    publishToMQTT(MQTT_DEVICE_AVAILABILITY_STATE_TOPIC, MQTT_PAYLOAD_AVAILABLE, false);
+    publishToMQTT(MQTT_DEVICE_STATUS_STATE_TOPIC, MQTT_PAYLOAD_AVAILABLE, true);
   }
 }
 
@@ -980,11 +1001,11 @@ void connectToMQTT()
     if (retries < 150)
     {
       Serial.println("[MQTT]: Attempting MQTT connection...");
-      if (mqttClient.connect(ESP_CHIP_ID, MQTT_USERNAME, MQTT_PASSWORD, MQTT_DEVICE_AVAILABILITY_STATE_TOPIC, 0, 1, MQTT_PAYLOAD_NOT_AVAILABLE))
+      if (mqttClient.connect(DEVICE_NAME, MQTT_USERNAME, MQTT_PASSWORD, MQTT_DEVICE_STATUS_STATE_TOPIC, 0, 1, MQTT_PAYLOAD_NOT_AVAILABLE))
       {
 
         Serial.println(F("[MQTT]: The mqttClient is successfully connected to the MQTT broker"));
-        publishToMQTT(MQTT_DEVICE_AVAILABILITY_STATE_TOPIC, MQTT_PAYLOAD_AVAILABLE, false);
+        publishToMQTT(MQTT_DEVICE_STATUS_STATE_TOPIC, MQTT_PAYLOAD_AVAILABLE, true);
         if (boot)
         {
           Serial.println(F("[MQTT]: Connected"));

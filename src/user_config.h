@@ -1,12 +1,12 @@
 #ifndef _USER_CONFIG_H_
 #define _USER_CONFIG_H_
 
-#define DEVICE_NAME_TEMPLATE "office_door_system_%s"
+#define DEVICE_NAME "office_door_system"
 #define DEVICE_FRIENDLY_NAME "Office Door System"
 #define DEVICE_MANUFACTURER "SwartNinja"
 #define DEVICE_MODEL "LoLin NodeMCU V3"
-#define DEVICE_VERSION "1.0.0"
-#define DEVICE_AVAILABILITY_NAME "availability"
+#define DEVICE_VERSION "1.0.2"
+#define DEVICE_STATUS "status"
 
 
 ///////////////////////////////////////////////////////////////////////////
@@ -102,7 +102,7 @@
 ///////////////////////////////////////////////////////////////////////////
 //   Over-the-Air update (OTA)
 ///////////////////////////////////////////////////////////////////////////
-#define OTA_HOSTNAME_TEMPLATE DEVICE_NAME_TEMPLATE // Used to define ArduinoOTA
+#define OTA_HOSTNAME DEVICE_NAME // Used to define ArduinoOTA
 #define OTA_PORT 8266                              // port 8266 by default
 
 #endif // _USER_CONFIG_H_
