@@ -1,12 +1,13 @@
 #ifndef _USER_CONFIG_H_
 #define _USER_CONFIG_H_
 
-#define DEVICE_NAME_TEMPLATE "office_door_system_%s"
+#define DEVICE_NAME "office_door_system"
 #define DEVICE_FRIENDLY_NAME "Office Door System"
 #define DEVICE_MANUFACTURER "SwartNinja"
 #define DEVICE_MODEL "LoLin NodeMCU V3"
-#define DEVICE_VERSION "1.0.0"
-#define DEVICE_AVAILABILITY_NAME "availability"
+#define DEVICE_VERSION "1.0.2"
+#define DEVICE_STATUS "status"
+
 
 ///////////////////////////////////////////////////////////////////////////
 //   WIFI
@@ -25,7 +26,6 @@
 #define MQTT_USERNAME "mqtt_user_name"
 #define MQTT_PASSWORD "mqtt_password"
 #define MQTT_CHECKIN_INTERVAL 60000
-#define HOME_ASSISTANT_LWT_TOPIC   "homeassistant/status"  // home Assistant Birth and Last Will Topic (default = homeassistant/status)
 
 #define HOME_ASSISTANT_LWT_TOPIC   "homeassistant/status"  // home Assistant Birth and Last Will Topic (default = homeassistant/status)
 
@@ -91,7 +91,7 @@
 ///////////////////////////////////////////////////////////////////////////
 //   STEPPER MOTOR
 ///////////////////////////////////////////////////////////////////////////
-#define STEPPER_NAME "cover"
+#define STEPPER_NAME "door"
 #define STEPPER_POSITION_NAME "position"
 #define STEPPER_DIR_PIN D2
 #define STEPPER_PUL_PIN D1
@@ -102,7 +102,7 @@
 ///////////////////////////////////////////////////////////////////////////
 //   Over-the-Air update (OTA)
 ///////////////////////////////////////////////////////////////////////////
-#define OTA_HOSTNAME_TEMPLATE DEVICE_NAME_TEMPLATE // Used to define ArduinoOTA
+#define OTA_HOSTNAME DEVICE_NAME // Used to define ArduinoOTA
 #define OTA_PORT 8266                              // port 8266 by default
 
 #endif // _USER_CONFIG_H_
