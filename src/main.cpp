@@ -35,6 +35,7 @@ void loopWiFiSensor(void);
 int getWiFiSignalStrength(void);
 
 // variables declaration
+char buffer [sizeof(int)*8+1];
 int previousWiFiSignalStrength = -1;
 unsigned long previousMillis = 0;
 int reqConnect = 0;
@@ -487,11 +488,11 @@ void loopWiFiSensor(void)
   if (lastWiFiQualityMeasure + WIFI_SIGNAL_STRENGTH_INTERVAL <= millis() || previousWiFiSignalStrength == -1)
   {
     lastWiFiQualityMeasure = millis();
-    int currentWiFiSignalStrength = WiFi.RSSI();
+    int currentWiFiSignalStrength = getWiFiSignalStrength();
     if (isnan(previousWiFiSignalStrength) || currentWiFiSignalStrength <= previousWiFiSignalStrength - WIFI_SIGNAL_STRENGTH_OFFSET_VALUE || currentWiFiSignalStrength >= previousWiFiSignalStrength + WIFI_SIGNAL_STRENGTH_OFFSET_VALUE)
     {
       previousWiFiSignalStrength = currentWiFiSignalStrength;
-      dtostrf(currentWiFiSignalStrength, 4, 2, MQTT_PAYLOAD);
+      itoa(currentWiFiSignalStrength, MQTT_PAYLOAD, 10);
       publishToMQTT(MQTT_WIFI_SIGNAL_STRENGTH_STATE_TOPIC, MQTT_PAYLOAD);
     }
   }
@@ -502,14 +503,16 @@ void loopWiFiSensor(void)
  */
 int getWiFiSignalStrength(void)
 {
-  if (WiFi.status() != WL_CONNECTED)
-    return -1;
-  int dBm = WiFi.RSSI();
-  if (dBm <= -100)
-    return 0;
-  if (dBm >= -50)
-    return 100;
-  return 2 * (dBm + 100);
+  return WiFi.RSSI();
+
+  // if (WiFi.status() != WL_CONNECTED)
+  //   return -1;
+  // int dBm = WiFi.RSSI();
+  // if (dBm <= -100)
+  //   return 0;
+  // if (dBm >= -50)
+  //   return 100;
+  // return 2 * (dBm + 100);
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -817,7 +820,7 @@ void publishAllState()
 
   // wifi signal strength
   previousWiFiSignalStrength = getWiFiSignalStrength();
-  dtostrf(previousWiFiSignalStrength, 4, 2, MQTT_PAYLOAD);
+  itoa(previousWiFiSignalStrength, MQTT_PAYLOAD, 10);
   publishToMQTT(MQTT_WIFI_SIGNAL_STRENGTH_STATE_TOPIC, MQTT_PAYLOAD);
 
   // siren
@@ -879,7 +882,7 @@ void handleMQTTMessage(char *topic, byte *payload, unsigned int length)
   {
     if (strPayload.equalsIgnoreCase(MQTT_CMD_RESET))
     {
-      Serial.println("Restarting device");
+      Serial.println("Reset device");
       systemCheckAndSet();
       publishAllState();
     }
@@ -959,6 +962,7 @@ void handleMQTTMessage(char *topic, byte *payload, unsigned int length)
   {
     if (strPayload.equalsIgnoreCase(MQTT_PAYLOAD_AVAILABLE))
     {
+      systemCheckAndSet();
       publishAllState();
     }
   }
@@ -984,8 +988,8 @@ void connectToMQTT()
         if (boot)
         {
           Serial.println(F("[MQTT]: Connected"));
-          hassAutoConfig();
           systemCheckAndSet();
+          hassAutoConfig();
           // publish all states for sensors
           publishAllState();
           boot = false;

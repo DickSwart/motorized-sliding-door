@@ -27,6 +27,8 @@
 #define MQTT_CHECKIN_INTERVAL 60000
 #define HOME_ASSISTANT_LWT_TOPIC   "homeassistant/status"  // home Assistant Birth and Last Will Topic (default = homeassistant/status)
 
+#define HOME_ASSISTANT_LWT_TOPIC   "homeassistant/status"  // home Assistant Birth and Last Will Topic (default = homeassistant/status)
+
 #define MQTT_DEVICE_AVAILABILITY_TEMPLATE "homeassistant/%s/state" // MQTT availability: online/offline
 #define MQTT_DEVICE_INFO_TEMPLATE "homeassistant/%s/info"
 #define MQTT_DEVICE_COMMAND_TEMPLATE "homeassistant/%s/set"
