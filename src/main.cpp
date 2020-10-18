@@ -984,6 +984,7 @@ void handleMQTTMessage(char *topic, byte *payload, unsigned int length)
     if (strPayload.equalsIgnoreCase(MQTT_PAYLOAD_AVAILABLE))
     {
       systemCheckAndSet();
+      hassAutoConfig();
       publishAllState();
     }
   }
